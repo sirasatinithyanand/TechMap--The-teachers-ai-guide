@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { v4: uuidv4 } = require("uuid");
-const { extractFingerprint } = require("../services/claude");
+const curricullm = require("../services/curricullm");
 const supabase = require("../services/supabase");
 
 // POST /api/fingerprint — create a classroom fingerprint
@@ -13,8 +13,8 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "year_level, class_description, and topic are required" });
     }
 
-    // Call Claude to extract structured fingerprint from free text
-    const extracted = await extractFingerprint(class_description);
+    // Use CurricuLLM to extract structured fingerprint from free text
+    const extracted = await curricullm.extractFingerprint(class_description);
 
     const fingerprint = {
       id: uuidv4(),

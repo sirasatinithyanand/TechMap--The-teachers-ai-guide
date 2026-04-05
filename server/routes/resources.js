@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { v4: uuidv4 } = require("uuid");
-const { scoreResource, generateCompanionGuide } = require("../services/claude");
+const { scoreResource, generateCompanionGuide } = require("../services/curricullm");
 const { searchResources } = require("../services/perplexity");
 const supabase = require("../services/supabase");
 

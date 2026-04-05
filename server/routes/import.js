@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { v4: uuidv4 } = require("uuid");
-const { scoreResource } = require("../services/claude");
+const { scoreResource } = require("../services/curricullm");
 const { fetchAndSummariseURL } = require("../services/perplexity");
 const supabase = require("../services/supabase");
 

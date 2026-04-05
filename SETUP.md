@@ -34,7 +34,7 @@ npm run install:all
 
 **Server** — copy `server/.env.example` to `server/.env` and fill in:
 ```
-CLAUDE_API_KEY=sk-ant-...
+CURRICULLM_API_KEY=your_curricullm_key...
 PERPLEXITY_API_KEY=pplx-...
 MAPBOX_TOKEN=pk.eyJ1...
 SUPABASE_URL=https://xxx.supabase.co
@@ -92,7 +92,7 @@ teachmap/
 
 ## API Keys Notes
 
-- **Claude**: Get from console.anthropic.com — uses `claude-sonnet-4-5`
+- **CurricuLLM**: Get from console.curricullm.com — model auto-selected based on teacher location (AU, AU-VIC, AU-WA, NZ)
 - **Perplexity**: Get from perplexity.ai/settings/api
 - **Mapbox**: Get from account.mapbox.com — create a public token
 - **Supabase**: Service role key for server (never expose to client), anon key for client
