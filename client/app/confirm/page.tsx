@@ -19,6 +19,8 @@ export default function ConfirmPage() {
     if (!p) { router.push('/'); return }
     setParsed(JSON.parse(p))
     setRaw(r || '')
+    const prof = localStorage.getItem('tm_professor')
+    if (prof) setProfessorName(JSON.parse(prof).name)
   }, [router])
 
   async function handleConfirm() {
@@ -67,17 +69,6 @@ export default function ConfirmPage() {
               <span className="text-sm font-semibold text-gray-900">{value}</span>
             </div>
           ))}
-
-          {/* Professor name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Your name (optional)</label>
-            <input
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="e.g. Dr. Smith"
-              value={professorName}
-              onChange={(e) => setProfessorName(e.target.value)}
-            />
-          </div>
 
           {error && <p className="text-red-500 text-sm">{error}</p>}
 

@@ -22,12 +22,13 @@ def _get_final_curriculum(course_id: str) -> dict:
         .select("*")
         .eq("course_id", course_id)
         .eq("is_final", True)
-        .single()
+        .order("created_at", desc=True)
+        .limit(1)
         .execute()
     )
     if not resp.data:
         raise HTTPException(status_code=400, detail="No finalized curriculum. Finalize curriculum first.")
-    return resp.data
+    return resp.data[0]
 
 
 @router.post("/courses/{course_id}/lectures/generate")
