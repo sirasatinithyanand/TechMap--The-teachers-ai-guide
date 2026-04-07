@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Plus, X, Upload, RefreshCw, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react'
 import dynamic from 'next/dynamic'
+import AppHeader from '@/components/AppHeader'
 import LoadingScreen from '@/components/LoadingScreen'
 import type { Chapter, Course } from '@/lib/api'
 import {
@@ -20,13 +23,18 @@ const MapboxMap = dynamic(() => import('@/components/MapboxMap'), { ssr: false }
 
 type Phase = 'loading' | 'ready' | 'blending' | 'finalizing' | 'generating'
 
+const itemVariants = {
+  hidden: { opacity: 0, y: 8 },
+  show: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 220, damping: 24 } },
+}
+
 export default function CurriculumPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
 
   const [course, setCourse] = useState<Course | null>(null)
-  const [baselineChapters, setBaselineChapters] = useState<Chapter[]>([])   // university reference (read-only)
-  const [chapters, setChapters] = useState<Chapter[]>([])                    // professor's editable version
+  const [baselineChapters, setBaselineChapters] = useState<Chapter[]>([])
+  const [chapters, setChapters] = useState<Chapter[]>([])
   const [phase, setPhase] = useState<Phase>('loading')
   const [generatingProgress, setGeneratingProgress] = useState('')
   const [uploading, setUploading] = useState(false)
@@ -34,6 +42,7 @@ export default function CurriculumPage() {
   const [error, setError] = useState('')
   const [editingIdx, setEditingIdx] = useState<number | null>(null)
   const [showBaseline, setShowBaseline] = useState(false)
+  const [confirmRegen, setConfirmRegen] = useState(false)
 
   useEffect(() => {
     getCourse(id)
@@ -44,7 +53,7 @@ export default function CurriculumPage() {
       .then((curriculum) => {
         const loaded = curriculum.content.chapters
         setBaselineChapters(loaded)
-        setChapters(JSON.parse(JSON.stringify(loaded))) // editable copy
+        setChapters(JSON.parse(JSON.stringify(loaded)))
         setPhase('ready')
       })
       .catch(() => {
@@ -75,6 +84,21 @@ export default function CurriculumPage() {
     setEditingIdx(null)
   }
 
+  async function handleRegenerate() {
+    setConfirmRegen(false)
+    setPhase('loading')
+    try {
+      const curriculum = await generateBaseline(id)
+      const loaded = curriculum.content.chapters
+      setBaselineChapters(loaded)
+      setChapters(JSON.parse(JSON.stringify(loaded)))
+    } catch {
+      setError('Regeneration failed.')
+    } finally {
+      setPhase('ready')
+    }
+  }
+
   async function handleSave() {
     setSaving(true)
     try {
@@ -92,11 +116,9 @@ export default function CurriculumPage() {
       setPhase('finalizing')
       await updateCurriculum(id, chapters)
       await finalizeCurriculum(id)
-
       setPhase('generating')
-      setGeneratingProgress(`Generating ${chapters.length} lectures...`)
+      setGeneratingProgress(`Generating ${chapters.length} lectures…`)
       await generateLectures(id)
-
       router.push(`/course/${id}/lectures`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
@@ -139,11 +161,9 @@ export default function CurriculumPage() {
       if (result.chapters?.length > 0) {
         setChapters(result.chapters)
       }
-      // Save inspiration record in background
       saveInspiration(id, inspiredUniversity || '', '', selectedChapters).catch(() => {})
     } catch {
       setError('Blend failed — applying chapters manually instead.')
-      // Fallback: simple topic merge
       setChapters((prev) => {
         const updated = prev.map((ch) => ({ ...ch, topics: [...ch.topics] }))
         const total = updated.length
@@ -163,103 +183,155 @@ export default function CurriculumPage() {
     }
   }
 
-  // Full-screen loading/generating overlay
   if (phase === 'loading') return <LoadingScreen phase="loading" />
-
   if (phase === 'blending') return <LoadingScreen phase="blending" />
   if (phase === 'finalizing') return <LoadingScreen phase="finalizing" />
   if (phase === 'generating') return <LoadingScreen phase="generating" extra={generatingProgress || undefined} />
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b px-6 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold text-gray-900">
-            {course?.course_name}
-            {course?.course_code && (
-              <span className="ml-2 text-gray-400 font-normal text-sm">({course.course_code})</span>
+    <div className="min-h-screen flex flex-col bg-surface">
+      <AppHeader
+        backHref="/"
+        backLabel="My Courses"
+        right={
+          <div className="flex items-center gap-2">
+            {/* Regenerate baseline */}
+            {!confirmRegen ? (
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={() => setConfirmRegen(true)}
+                className="flex items-center gap-1.5 font-label text-xs text-on-surface-variant hover:text-on-surface border border-outline-variant rounded-full px-3 py-1.5 transition-colors"
+              >
+                <RefreshCw className="w-3 h-3" />
+                Regenerate
+              </motion.button>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex items-center gap-2 bg-surface-container rounded-full px-3 py-1.5"
+              >
+                <span className="font-label text-xs text-on-surface-variant">Reset edits?</span>
+                <button onClick={handleRegenerate} className="font-label text-xs font-semibold text-on-surface hover:underline">Yes</button>
+                <button onClick={() => setConfirmRegen(false)} className="font-label text-xs text-on-surface-variant hover:text-on-surface">Cancel</button>
+              </motion.div>
             )}
-          </h1>
-          <p className="text-sm text-gray-500">
-            {course?.university_name} · {course?.grade_level || 'Undergraduate'}
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-4 py-2 border rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
-          >
-            {saving ? 'Saving...' : 'Save Draft'}
-          </button>
-          <button
-            onClick={handleFinalize}
-            disabled={chapters.length === 0}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50"
-          >
-            Finalise & Generate Lectures
-          </button>
-        </div>
-      </header>
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={handleSave}
+              disabled={saving}
+              className="font-label text-xs text-on-surface-variant hover:text-on-surface border border-outline-variant rounded-full px-3 py-1.5 transition-colors disabled:opacity-40"
+            >
+              {saving ? 'Saving…' : 'Save Draft'}
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              onClick={handleFinalize}
+              disabled={chapters.length === 0}
+              className="font-label text-xs font-semibold bg-primary text-on-primary rounded-full px-4 py-1.5 hover:bg-primary-container disabled:opacity-40 transition-colors"
+            >
+              Finalise & Generate →
+            </motion.button>
+          </div>
+        }
+      />
 
-      {error && (
-        <div className="bg-red-50 border-b border-red-200 px-6 py-2 text-sm text-red-600">{error}</div>
-      )}
+      {/* Title row */}
+      <div className="px-6 py-3 bg-surface-container-lowest border-b border-outline-variant/30">
+        <h1 className="font-headline font-[500] text-base text-on-surface tracking-[-0.02em]">
+          {course?.course_name}
+          {course?.course_code && <span className="font-label text-sm text-on-surface-variant ml-2">({course.course_code})</span>}
+        </h1>
+        <p className="font-label text-xs text-on-surface-variant mt-0.5">
+          {course?.university_name} · {course?.grade_level || 'Undergraduate'}
+        </p>
+      </div>
+
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="bg-error/10 px-6 py-2 text-xs text-error font-label overflow-hidden"
+          >
+            {error}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left: Curriculum editor */}
-        <div className="w-2/5 border-r bg-white flex flex-col overflow-hidden">
+        <div className="w-2/5 border-r border-outline-variant/30 bg-surface-container-lowest flex flex-col overflow-hidden">
 
-          {/* University baseline toggle */}
-          <div className="border-b">
+          {/* Baseline toggle */}
+          <div className="border-b border-outline-variant/30">
             <button
               onClick={() => setShowBaseline(!showBaseline)}
-              className="w-full flex items-center justify-between px-5 py-3 hover:bg-gray-50 text-sm transition"
+              className="w-full flex items-center justify-between px-5 py-3 hover:bg-surface-container-low transition-colors text-sm"
             >
               <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />
-                <span className="font-medium text-gray-700">
-                  {course?.university_name} Official Curriculum
+                <span className="w-1.5 h-1.5 rounded-full bg-on-surface-variant shrink-0" />
+                <span className="font-label text-xs text-on-surface-variant">
+                  {course?.university_name} Official
                 </span>
-                <span className="text-xs text-gray-400">({baselineChapters.length} chapters)</span>
+                <span className="font-label text-[10px] text-outline">({baselineChapters.length} ch)</span>
               </div>
-              <span className="text-gray-400 text-xs">{showBaseline ? '▲ Hide' : '▼ View'}</span>
+              {showBaseline
+                ? <ChevronUp className="w-3.5 h-3.5 text-outline" />
+                : <ChevronDown className="w-3.5 h-3.5 text-outline" />}
             </button>
 
-            {showBaseline && (
-              <div className="bg-blue-50 px-5 pb-4 max-h-56 overflow-y-auto border-t border-blue-100">
-                <p className="text-xs text-blue-500 py-2">
-                  Read-only reference — this is what {course?.university_name} teaches.
-                </p>
-                <ol className="space-y-2">
-                  {baselineChapters.map((ch) => (
-                    <li key={ch.number} className="text-sm">
-                      <span className="font-medium text-blue-700">{ch.number}. {ch.title}</span>
-                      {ch.topics.length > 0 && (
-                        <p className="text-xs text-blue-400 mt-0.5">{ch.topics.join(' · ')}</p>
-                      )}
-                    </li>
-                  ))}
-                </ol>
-                <button
-                  onClick={resetToBaseline}
-                  className="mt-3 text-xs text-blue-600 hover:underline"
+            <AnimatePresence>
+              {showBaseline && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
                 >
-                  Reset my curriculum to this baseline
-                </button>
-              </div>
-            )}
+                  <div className="bg-surface-container-low px-5 pb-4 max-h-56 overflow-y-auto border-t border-outline-variant/20">
+                    <p className="font-label text-[10px] text-on-surface-variant py-2 uppercase tracking-wide">
+                      Read-only — reference curriculum
+                    </p>
+                    <ol className="space-y-2">
+                      {baselineChapters.map((ch) => (
+                        <li key={ch.number} className="text-xs">
+                          <span className="font-label font-semibold text-on-surface">{ch.number}. {ch.title}</span>
+                          {ch.topics.length > 0 && (
+                            <p className="text-outline mt-0.5 truncate">{ch.topics.join(' · ')}</p>
+                          )}
+                        </li>
+                      ))}
+                    </ol>
+                    <button
+                      onClick={resetToBaseline}
+                      className="mt-3 flex items-center gap-1 font-label text-xs text-on-surface-variant hover:text-on-surface transition-colors"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      Reset to this baseline
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
-          {/* Editable curriculum header */}
-          <div className="px-5 py-3 border-b flex items-center justify-between">
+          {/* Editor header */}
+          <div className="px-5 py-3 border-b border-outline-variant/30 flex items-center justify-between">
             <div>
-              <h2 className="font-semibold text-gray-800 text-sm">Your Personalised Curriculum</h2>
-              <p className="text-xs text-gray-400 mt-0.5">Edit chapters, add inspiration from the map, or upload files</p>
+              <p className="font-label text-xs font-semibold text-on-surface">Your Curriculum</p>
+              <p className="font-label text-[10px] text-on-surface-variant mt-0.5">Edit chapters · Add from map · Upload files</p>
             </div>
-            <label className="cursor-pointer text-sm text-indigo-600 hover:underline flex items-center gap-1 shrink-0">
-              {uploading ? 'Uploading...' : '+ Upload'}
+            <label className="cursor-pointer">
+              <motion.span
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center gap-1 font-label text-xs text-on-surface-variant hover:text-on-surface border border-outline-variant rounded-full px-2.5 py-1 transition-colors"
+              >
+                <Upload className="w-3 h-3" />
+                {uploading ? 'Uploading…' : 'Upload'}
+              </motion.span>
               <input
                 type="file"
                 className="hidden"
@@ -270,76 +342,103 @@ export default function CurriculumPage() {
             </label>
           </div>
 
-          {/* Editable chapters */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-2">
-            {chapters.map((ch, idx) => (
-              <div
-                key={idx}
-                className="border rounded-lg p-3 bg-gray-50 hover:border-indigo-300 transition cursor-pointer"
-                onClick={() => setEditingIdx(editingIdx === idx ? null : idx)}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex gap-2 flex-1 min-w-0">
-                    <span className="text-indigo-500 font-medium text-sm shrink-0">{ch.number}.</span>
-                    {editingIdx === idx ? (
-                      <input
-                        className="flex-1 text-sm font-medium border-b border-indigo-400 bg-transparent focus:outline-none"
-                        value={ch.title}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => updateChapter(idx, 'title', e.target.value)}
-                      />
-                    ) : (
-                      <span className="text-sm font-medium text-gray-800 truncate">{ch.title}</span>
-                    )}
-                  </div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); removeChapter(idx) }}
-                    className="text-gray-300 hover:text-red-400 text-xs shrink-0"
-                  >
-                    ✕
-                  </button>
-                </div>
-
-                {editingIdx === idx && (
-                  <div className="mt-2 space-y-2" onClick={(e) => e.stopPropagation()}>
-                    <textarea
-                      className="w-full text-xs border rounded px-2 py-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-indigo-400"
-                      rows={2}
-                      placeholder="Description..."
-                      value={ch.description || ''}
-                      onChange={(e) => updateChapter(idx, 'description', e.target.value)}
-                    />
-                    <input
-                      className="w-full text-xs border rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400"
-                      placeholder="Topics (comma separated)"
-                      value={ch.topics.join(', ')}
-                      onChange={(e) =>
-                        updateChapter(idx, 'topics', e.target.value.split(',').map((t) => t.trim()).filter(Boolean))
-                      }
-                    />
-                    <input
-                      className="w-full text-xs border rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400"
-                      placeholder="Learning outcomes (comma separated)"
-                      value={ch.learning_outcomes.join(', ')}
-                      onChange={(e) =>
-                        updateChapter(idx, 'learning_outcomes', e.target.value.split(',').map((t) => t.trim()).filter(Boolean))
-                      }
-                    />
-                  </div>
-                )}
-
-                {ch.topics.length > 0 && editingIdx !== idx && (
-                  <p className="text-xs text-gray-400 mt-1 truncate">{ch.topics.join(' · ')}</p>
-                )}
-              </div>
-            ))}
-
-            <button
-              onClick={addChapter}
-              className="w-full py-2 border-2 border-dashed border-gray-200 rounded-lg text-sm text-gray-400 hover:border-indigo-300 hover:text-indigo-500 transition"
+          {/* Chapters */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-1.5">
+            <motion.div
+              initial="hidden"
+              animate="show"
+              variants={{ show: { transition: { staggerChildren: 0.03 } } }}
+              className="space-y-1.5"
             >
-              + Add chapter
-            </button>
+              <AnimatePresence>
+                {chapters.map((ch, idx) => (
+                  <motion.div
+                    key={idx}
+                    layout
+                    variants={itemVariants}
+                    exit={{ opacity: 0, x: -8, transition: { duration: 0.15 } }}
+                    className={`rounded-lg p-3 cursor-pointer transition-colors ${
+                      editingIdx === idx
+                        ? 'bg-surface-container'
+                        : 'bg-surface-container-low hover:bg-surface-container'
+                    }`}
+                    onClick={() => setEditingIdx(editingIdx === idx ? null : idx)}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex gap-2.5 flex-1 min-w-0 items-baseline">
+                        <span className="font-label text-[10px] text-on-surface-variant shrink-0">{ch.number}</span>
+                        {editingIdx === idx ? (
+                          <input
+                            className="flex-1 text-xs font-semibold text-on-surface bg-transparent border-b border-outline focus:outline-none"
+                            value={ch.title}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => updateChapter(idx, 'title', e.target.value)}
+                          />
+                        ) : (
+                          <span className="text-xs font-semibold text-on-surface truncate">{ch.title}</span>
+                        )}
+                      </div>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); removeChapter(idx) }}
+                        className="text-outline hover:text-error shrink-0 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+
+                    <AnimatePresence>
+                      {editingIdx === idx && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.18 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="mt-2 space-y-1.5" onClick={(e) => e.stopPropagation()}>
+                            <textarea
+                              className="w-full text-xs bg-surface-container-lowest rounded px-2.5 py-2 resize-none focus:outline-none placeholder:text-outline min-h-[48px]"
+                              placeholder="Description…"
+                              value={ch.description || ''}
+                              onChange={(e) => updateChapter(idx, 'description', e.target.value)}
+                            />
+                            <input
+                              className="w-full text-xs bg-surface-container-lowest rounded px-2.5 py-2 focus:outline-none placeholder:text-outline"
+                              placeholder="Topics (comma separated)"
+                              value={ch.topics.join(', ')}
+                              onChange={(e) =>
+                                updateChapter(idx, 'topics', e.target.value.split(',').map((t) => t.trim()).filter(Boolean))
+                              }
+                            />
+                            <input
+                              className="w-full text-xs bg-surface-container-lowest rounded px-2.5 py-2 focus:outline-none placeholder:text-outline"
+                              placeholder="Learning outcomes (comma separated)"
+                              value={ch.learning_outcomes.join(', ')}
+                              onChange={(e) =>
+                                updateChapter(idx, 'learning_outcomes', e.target.value.split(',').map((t) => t.trim()).filter(Boolean))
+                              }
+                            />
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {ch.topics.length > 0 && editingIdx !== idx && (
+                      <p className="text-[10px] text-outline mt-1.5 truncate pl-5">{ch.topics.join(' · ')}</p>
+                    )}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </motion.div>
+
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              onClick={addChapter}
+              className="w-full py-2.5 rounded-lg border border-dashed border-outline-variant text-xs text-on-surface-variant hover:text-on-surface hover:border-outline transition-colors flex items-center justify-center gap-1.5 font-label"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add chapter
+            </motion.button>
           </div>
         </div>
 
