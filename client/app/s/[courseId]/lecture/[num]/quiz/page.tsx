@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
 import type { QuizQuestion, QuizReviewItem } from '@/lib/api'
 import { listLectures, getQuiz, submitQuiz } from '@/lib/api'
 
@@ -59,19 +60,19 @@ export default function QuizPage() {
 
   if (phase === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-white">
-        <div className="w-6 h-6 border-4 border-blue-400 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-surface">
+        <div className="w-5 h-5 border-2 border-on-surface-variant border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
 
   if (phase === 'no-quiz') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-white px-4">
+      <div className="min-h-screen flex items-center justify-center bg-surface px-4">
         <div className="text-center">
-          <p className="text-5xl mb-4">📭</p>
-          <p className="text-xl font-bold text-gray-700">No quiz yet</p>
-          <p className="text-gray-400 text-sm mt-1">Your professor hasn't published a quiz for this lecture.</p>
+          <p className="font-label text-xs tracking-widest text-on-surface-variant uppercase mb-3">Quiz</p>
+          <h1 className="font-headline font-[540] text-2xl tracking-[-0.03em] text-on-surface mb-2">No quiz yet</h1>
+          <p className="font-label text-sm text-on-surface-variant">Your professor hasn&apos;t published a quiz for this lecture.</p>
         </div>
       </div>
     )
@@ -80,24 +81,22 @@ export default function QuizPage() {
   if (phase === 'review' && review.length > 0) {
     const item = review[reviewIndex]
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+      <div className="min-h-screen bg-surface">
         {/* Header */}
-        <div className="bg-white border-b sticky top-0 z-10 shadow-sm">
+        <div className="bg-surface-container-lowest/80 backdrop-blur border-b border-outline-variant/40 sticky top-0 z-10">
           <div className="px-4 py-3 text-center">
-            <div className="inline-flex items-center gap-1.5 bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full mb-1">
-              🔍 Review Answers
+            <div className="inline-flex items-center gap-1.5 bg-surface-container text-on-surface-variant font-label text-xs font-semibold px-3 py-1 rounded-full mb-1">
+              Review Answers
             </div>
-            <p className="text-xs text-gray-500">{reviewIndex + 1} of {review.length}</p>
+            <p className="font-label text-xs text-on-surface-variant">{reviewIndex + 1} of {review.length}</p>
           </div>
           <div className="flex justify-center gap-1.5 py-2 px-4">
             {review.map((r, i) => (
               <button
                 key={i}
                 onClick={() => setReviewIndex(i)}
-                className={`w-2.5 h-2.5 rounded-full transition-all ${
-                  i === reviewIndex
-                    ? 'w-5 ' + (r.is_correct ? 'bg-green-500' : 'bg-red-400')
-                    : r.is_correct ? 'bg-green-300' : 'bg-red-200'
+                className={`h-2 rounded-full transition-all ${
+                  i === reviewIndex ? 'w-5 bg-on-surface' : r.is_correct ? 'w-2 bg-surface-container-highest' : 'w-2 bg-outline-variant'
                 }`}
               />
             ))}
@@ -105,77 +104,85 @@ export default function QuizPage() {
         </div>
 
         <div className="max-w-md mx-auto px-4 py-6 space-y-4">
-          {/* Result badge */}
-          <div className={`rounded-2xl p-4 border-2 ${item.is_correct ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-xl">{item.is_correct ? '✅' : '❌'}</span>
-              <span className={`text-sm font-bold ${item.is_correct ? 'text-green-700' : 'text-red-600'}`}>
-                {item.is_correct ? 'Correct!' : 'Incorrect'}
-              </span>
-              <span className="ml-auto text-xs text-gray-400">Q{reviewIndex + 1}</span>
-            </div>
-            <p className="text-sm font-semibold text-gray-800 leading-snug">{item.question}</p>
-          </div>
-
-          {/* Options */}
-          <div className="space-y-2">
-            {item.options.map((opt, i) => {
-              const isCorrect = opt === item.correct_answer
-              const isYours = opt === item.your_answer
-              const base = 'w-full text-left px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all flex items-center gap-2.5'
-              let cls = base
-              if (isCorrect) cls += ' border-green-400 bg-green-50 text-green-800'
-              else if (isYours && !isCorrect) cls += ' border-red-300 bg-red-50 text-red-700'
-              else cls += ' border-gray-200 bg-white text-gray-500'
-              return (
-                <div key={i} className={cls}>
-                  <span className={`shrink-0 w-6 h-6 rounded-full border-2 text-xs flex items-center justify-center font-bold ${
-                    isCorrect ? 'border-green-400 bg-green-400 text-white'
-                    : isYours ? 'border-red-300 bg-red-300 text-white'
-                    : 'border-gray-300 text-gray-400'
-                  }`}>
-                    {String.fromCharCode(65 + i)}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={reviewIndex}
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div className={`rounded-lg p-4 mb-4 ${item.is_correct ? 'bg-surface-container-lowest shadow-card' : 'bg-surface-container-low'}`}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="font-label text-xs font-semibold text-on-surface">
+                    {item.is_correct ? '✓ Correct' : '✗ Incorrect'}
                   </span>
-                  <span className="flex-1">{opt}</span>
-                  {isCorrect && <span className="text-green-500 text-base">✓</span>}
-                  {isYours && !isCorrect && <span className="text-red-400 text-base">✗</span>}
+                  <span className="ml-auto font-label text-xs text-outline">Q{reviewIndex + 1}</span>
                 </div>
-              )
-            })}
-          </div>
+                <p className="font-headline font-[500] text-sm text-on-surface leading-snug">{item.question}</p>
+              </div>
 
-          {/* Explanation */}
-          {item.explanation && (
-            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
-              <p className="text-xs font-semibold text-blue-600 mb-1">💡 Explanation</p>
-              <p className="text-sm text-blue-800 leading-relaxed">{item.explanation}</p>
-            </div>
-          )}
+              <div className="space-y-2 mb-4">
+                {item.options.map((opt, i) => {
+                  const isCorrect = opt === item.correct_answer
+                  const isYours = opt === item.your_answer
+                  return (
+                    <div
+                      key={i}
+                      className={`w-full px-4 py-3 rounded-lg text-sm font-label flex items-center gap-2.5 ${
+                        isCorrect
+                          ? 'bg-on-surface text-on-primary'
+                          : isYours && !isCorrect
+                          ? 'bg-surface-container-high text-on-surface-variant line-through'
+                          : 'bg-surface-container-lowest text-on-surface-variant border border-outline-variant/40'
+                      }`}
+                    >
+                      <span className={`shrink-0 w-5 h-5 rounded-full border text-xs flex items-center justify-center font-bold ${
+                        isCorrect ? 'border-on-primary text-on-primary' : 'border-outline-variant text-outline'
+                      }`}>
+                        {String.fromCharCode(65 + i)}
+                      </span>
+                      <span className="flex-1">{opt}</span>
+                    </div>
+                  )
+                })}
+              </div>
 
-          {/* Navigation */}
-          <div className="flex gap-3 pt-2">
+              {item.explanation && (
+                <div className="bg-surface-container-low rounded-lg p-4 mb-4">
+                  <p className="font-label text-xs tracking-wide text-on-surface-variant uppercase mb-1">Explanation</p>
+                  <p className="text-sm text-on-surface leading-relaxed">{item.explanation}</p>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+
+          <div className="flex gap-3">
             {reviewIndex > 0 && (
-              <button
+              <motion.button
+                whileTap={{ scale: 0.98 }}
                 onClick={() => setReviewIndex(reviewIndex - 1)}
-                className="flex-1 py-3 border-2 border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:border-gray-300"
+                className="flex-1 py-3 border border-outline-variant font-label text-xs text-on-surface-variant hover:bg-surface-container rounded-full transition-colors"
               >
                 ← Prev
-              </button>
+              </motion.button>
             )}
             {reviewIndex < review.length - 1 ? (
-              <button
+              <motion.button
+                whileTap={{ scale: 0.98 }}
                 onClick={() => setReviewIndex(reviewIndex + 1)}
-                className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl text-sm font-semibold hover:opacity-90 transition"
+                className="flex-1 py-3 bg-primary text-on-primary font-label text-xs font-semibold rounded-full hover:bg-primary-container transition-colors"
               >
                 Next →
-              </button>
+              </motion.button>
             ) : (
-              <button
+              <motion.button
+                whileTap={{ scale: 0.98 }}
                 onClick={() => setPhase('submitted')}
-                className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl text-sm font-semibold hover:opacity-90 transition"
+                className="flex-1 py-3 bg-primary text-on-primary font-label text-xs font-semibold rounded-full hover:bg-primary-container transition-colors"
               >
                 Back to score
-              </button>
+              </motion.button>
             )}
           </div>
         </div>
@@ -185,68 +192,70 @@ export default function QuizPage() {
 
   if (phase === 'submitted' && result) {
     const pct = result.total_mcq ? Math.round((result.correct / result.total_mcq) * 100) : 0
-    const { emoji, msg, bg } =
-      pct >= 80 ? { emoji: '🎉', msg: 'Excellent!', bg: 'from-green-400 to-emerald-500' }
-      : pct >= 60 ? { emoji: '👍', msg: 'Good effort!', bg: 'from-blue-400 to-indigo-500' }
-      : { emoji: '📖', msg: 'Keep reviewing', bg: 'from-amber-400 to-orange-500' }
+    const msg =
+      pct >= 80 ? 'Excellent work!'
+      : pct >= 60 ? 'Good effort!'
+      : 'Keep reviewing'
 
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-white px-4">
-        <div className="bg-white rounded-3xl shadow-lg border p-8 text-center max-w-xs w-full">
-          <div className={`w-24 h-24 rounded-full bg-gradient-to-br ${bg} flex items-center justify-center mx-auto mb-4 shadow-lg`}>
-            <span className="text-4xl">{emoji}</span>
-          </div>
-          <p className="text-5xl font-black text-gray-900 mb-1">{pct}%</p>
-          <p className="text-lg font-semibold text-gray-600">{msg}</p>
-          <p className="text-sm text-gray-400 mt-2">
+      <div className="min-h-screen flex items-center justify-center bg-surface px-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 200, damping: 22 }}
+          className="bg-surface-container-lowest rounded-lg shadow-card p-8 text-center max-w-xs w-full"
+        >
+          <p className="font-label font-bold text-6xl text-on-surface mb-1">{pct}%</p>
+          <p className="font-headline font-[500] text-lg text-on-surface">{msg}</p>
+          <p className="font-label text-sm text-on-surface-variant mt-2">
             {result.correct} of {result.total_mcq} correct
           </p>
-          <div className="mt-5 h-2.5 bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full bg-gradient-to-r ${bg} transition-all duration-1000`}
-              style={{ width: `${pct}%` }}
+          <div className="mt-5 h-1.5 bg-surface-container rounded-full overflow-hidden">
+            <motion.div
+              className="h-full rounded-full bg-on-surface"
+              initial={{ width: 0 }}
+              animate={{ width: `${pct}%` }}
+              transition={{ duration: 1, ease: 'easeOut' }}
             />
           </div>
           {review.length > 0 && (
-            <button
+            <motion.button
+              whileTap={{ scale: 0.98 }}
               onClick={() => { setReviewIndex(0); setPhase('review') }}
-              className="mt-5 w-full py-3 border-2 border-blue-200 text-blue-600 rounded-2xl text-sm font-semibold hover:bg-blue-50 transition"
+              className="mt-5 w-full py-3 border border-outline-variant font-label text-sm font-semibold text-on-surface-variant hover:bg-surface-container rounded-full transition-colors"
             >
               Review Answers →
-            </button>
+            </motion.button>
           )}
-        </div>
+        </motion.div>
       </div>
     )
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+    <main className="min-h-screen bg-surface">
       {/* Header + progress */}
-      <div className="bg-white border-b sticky top-0 z-10 shadow-sm">
+      <div className="bg-surface-container-lowest/80 backdrop-blur border-b border-outline-variant/40 sticky top-0 z-10">
         <div className="px-4 py-3 text-center">
-          <div className="inline-flex items-center gap-1.5 bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full mb-1">
-            📝 Quiz
+          <div className="inline-flex items-center gap-1.5 bg-surface-container text-on-surface-variant font-label text-xs font-semibold px-3 py-1 rounded-full mb-1">
+            Quiz
           </div>
-          <p className="text-xs text-gray-500 truncate">{lectureTitle}</p>
+          <p className="font-label text-xs text-on-surface-variant truncate">{lectureTitle}</p>
         </div>
-        <div className="h-1.5 bg-gray-100">
-          <div
-            className="h-full bg-gradient-to-r from-blue-400 to-indigo-500 transition-all duration-500"
-            style={{ width: `${progress}%` }}
+        <div className="h-1 bg-surface-container">
+          <motion.div
+            className="h-full bg-on-surface"
+            animate={{ width: `${progress}%` }}
+            transition={{ duration: 0.4 }}
           />
         </div>
-        <div className="flex justify-center gap-2 py-2">
+        <div className="flex justify-center gap-1.5 py-2">
           {questions.map((_, i) => (
             <button
               key={i}
               onClick={() => setCurrent(i)}
-              className={`w-2.5 h-2.5 rounded-full transition-all ${
-                i === current
-                  ? 'bg-blue-500 w-5'
-                  : answers[i]
-                  ? 'bg-blue-300'
-                  : 'bg-gray-200'
+              className={`h-2 rounded-full transition-all ${
+                i === current ? 'w-5 bg-on-surface' : answers[i] ? 'w-2 bg-surface-container-highest' : 'w-2 bg-outline-variant'
               }`}
             />
           ))}
@@ -254,77 +263,90 @@ export default function QuizPage() {
       </div>
 
       <div className="max-w-md mx-auto px-4 py-6">
-        {currentQ && (
-          <div className="space-y-4">
-            <div className="bg-white rounded-2xl border shadow-sm p-5">
-              <p className="text-xs text-blue-500 font-semibold mb-2">
-                Question {current + 1} of {questions.length}
-              </p>
-              <p className="text-base font-semibold text-gray-800 leading-snug">{currentQ.q}</p>
-            </div>
-
-            {currentQ.type === 'mcq' && currentQ.options ? (
-              <div className="space-y-2.5">
-                {currentQ.options.map((opt, i) => {
-                  const isSelected = currentAnswer === opt
-                  return (
-                    <button
-                      key={i}
-                      onClick={() => selectAnswer(opt)}
-                      className={`w-full text-left px-4 py-3.5 rounded-xl border-2 text-sm font-medium transition-all ${
-                        isSelected
-                          ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
-                          : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50 text-gray-700'
-                      }`}
-                    >
-                      <span className={`inline-flex w-6 h-6 rounded-full border-2 text-xs items-center justify-center mr-2.5 shrink-0 ${
-                        isSelected ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-300 text-gray-400'
-                      }`}>
-                        {String.fromCharCode(65 + i)}
-                      </span>
-                      {opt}
-                    </button>
-                  )
-                })}
+        <AnimatePresence mode="wait">
+          {currentQ && (
+            <motion.div
+              key={current}
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-4"
+            >
+              <div className="bg-surface-container-lowest rounded-lg shadow-card p-5">
+                <p className="font-label text-xs text-on-surface-variant mb-2">
+                  Question {current + 1} of {questions.length}
+                </p>
+                <p className="font-headline font-[500] text-base text-on-surface leading-snug">{currentQ.q}</p>
               </div>
-            ) : (
-              <textarea
-                className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-400 resize-none min-h-[100px] bg-white"
-                placeholder="Type your answer..."
-                value={answers[current] || ''}
-                onChange={(e) => setAnswers((prev) => prev.map((a, i) => (i === current ? e.target.value : a)))}
-              />
-            )}
 
-            <div className="flex gap-3 pt-2">
-              {current > 0 && (
-                <button
-                  onClick={() => setCurrent(current - 1)}
-                  className="flex-1 py-3 border-2 border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:border-gray-300"
-                >
-                  ← Back
-                </button>
-              )}
-              {current < questions.length - 1 ? (
-                <button
-                  onClick={() => setCurrent(current + 1)}
-                  disabled={!currentAnswer}
-                  className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl text-sm font-semibold disabled:opacity-40 hover:opacity-90 transition"
-                >
-                  Next →
-                </button>
+              {currentQ.type === 'mcq' && currentQ.options ? (
+                <div className="space-y-2">
+                  {currentQ.options.map((opt, i) => {
+                    const isSelected = currentAnswer === opt
+                    return (
+                      <motion.button
+                        key={i}
+                        whileTap={{ scale: 0.99 }}
+                        onClick={() => selectAnswer(opt)}
+                        className={`w-full text-left px-4 py-3.5 rounded-lg text-sm font-label transition-colors flex items-center gap-2.5 ${
+                          isSelected
+                            ? 'bg-on-surface text-on-primary'
+                            : 'bg-surface-container-lowest border border-outline-variant/40 hover:bg-surface-container-low text-on-surface'
+                        }`}
+                      >
+                        <span className={`shrink-0 w-5 h-5 rounded-full border text-xs flex items-center justify-center font-bold ${
+                          isSelected ? 'border-on-primary text-on-primary' : 'border-outline-variant text-outline'
+                        }`}>
+                          {String.fromCharCode(65 + i)}
+                        </span>
+                        {opt}
+                      </motion.button>
+                    )
+                  })}
+                </div>
               ) : (
-                <button
-                  onClick={handleSubmit}
-                  disabled={submitting || answers.some((a) => !a)}
-                  className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl text-sm font-semibold disabled:opacity-40 hover:opacity-90 transition"
-                >
-                  {submitting ? 'Submitting...' : 'Submit Quiz ✓'}
-                </button>
+                <textarea
+                  className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-outline resize-none min-h-[100px] text-on-surface placeholder:text-outline"
+                  placeholder="Type your answer..."
+                  value={answers[current] || ''}
+                  onChange={(e) => setAnswers((prev) => prev.map((a, i) => (i === current ? e.target.value : a)))}
+                />
               )}
-            </div>
-          </div>
-        )}
+
+              <div className="flex gap-3 pt-2">
+                {current > 0 && (
+                  <motion.button
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setCurrent(current - 1)}
+                    className="flex-1 py-3 border border-outline-variant font-label text-xs text-on-surface-variant hover:bg-surface-container rounded-full transition-colors"
+                  >
+                    ← Back
+                  </motion.button>
+                )}
+                {current < questions.length - 1 ? (
+                  <motion.button
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setCurrent(current + 1)}
+                    disabled={!currentAnswer}
+                    className="flex-1 py-3 bg-primary text-on-primary font-label text-xs font-semibold rounded-full hover:bg-primary-container disabled:opacity-40 transition-colors"
+                  >
+                    Next →
+                  </motion.button>
+                ) : (
+                  <motion.button
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleSubmit}
+                    disabled={submitting || answers.some((a) => !a)}
+                    className="flex-1 py-3 bg-primary text-on-primary font-label text-xs font-semibold rounded-full hover:bg-primary-container disabled:opacity-40 transition-colors"
+                  >
+                    {submitting ? 'Submitting…' : 'Submit Quiz'}
+                  </motion.button>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </main>
   )
