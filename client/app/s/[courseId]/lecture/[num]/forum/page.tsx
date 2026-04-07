@@ -61,12 +61,24 @@ function QuestionCard({ q, hasUpvoted, onUpvote, autoOpenReplies }: QuestionCard
     }
   }
 
-  // Auto-open replies for newly posted questions so the AI answer loads
+  // Auto-open replies for newly posted questions and poll until AI reply arrives
   useEffect(() => {
-    if (autoOpenReplies) {
-      setShowReplies(true)
-      loadReplies()
-    }
+    if (!autoOpenReplies) return
+    setShowReplies(true)
+    loadReplies()
+
+    // Poll every 3s for up to 30s until an AI reply appears
+    let attempts = 0
+    const interval = setInterval(async () => {
+      attempts++
+      const data = await getReplies(q.id)
+      setReplies(data)
+      if (data.some((r) => r.is_ai) || attempts >= 10) {
+        clearInterval(interval)
+      }
+    }, 3000)
+
+    return () => clearInterval(interval)
   }, [autoOpenReplies])
 
   async function handleToggleReplies() {
