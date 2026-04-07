@@ -126,6 +126,23 @@ export interface QuizResult {
   question_stats: { question: string; correct_count: number; total: number; avg_correct: number }[]
 }
 
+// ---- Auth ----
+
+export const authRegister = (name: string, password: string) =>
+  req<{ professor_id: string; name: string }>('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ name, password }),
+  })
+
+export const authLogin = (name: string, password: string) =>
+  req<{ professor_id: string; name: string }>('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ name, password }),
+  })
+
+export const getProfessorCourses = (professorId: string) =>
+  req<Course[]>(`/api/professors/${professorId}/courses`)
+
 // ---- Courses ----
 
 export const parseCourse = (sentence: string) =>
