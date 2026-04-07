@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
+import LoadingScreen from '@/components/LoadingScreen'
 import type { Chapter, Course } from '@/lib/api'
 import {
   getCourse,
@@ -163,34 +164,11 @@ export default function CurriculumPage() {
   }
 
   // Full-screen loading/generating overlay
-  if (phase === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-gray-500 text-sm">Fetching university curriculum...</p>
-        </div>
-      </div>
-    )
-  }
+  if (phase === 'loading') return <LoadingScreen phase="loading" />
 
-  if (phase === 'blending' || phase === 'finalizing' || phase === 'generating') {
-    const messages = {
-      blending: { title: 'Blending curricula...', sub: 'AI is merging both universities into your personalized curriculum.' },
-      finalizing: { title: 'Locking curriculum...', sub: 'Saving your personalised curriculum.' },
-      generating: { title: 'Generating lectures', sub: `${generatingProgress} This takes about 30–60 seconds.` },
-    }
-    const { title, sub } = messages[phase]
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center max-w-sm">
-          <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <h2 className="text-lg font-semibold text-gray-800 mb-1">{title}</h2>
-          <p className="text-sm text-gray-400">{sub}</p>
-        </div>
-      </div>
-    )
-  }
+  if (phase === 'blending') return <LoadingScreen phase="blending" />
+  if (phase === 'finalizing') return <LoadingScreen phase="finalizing" />
+  if (phase === 'generating') return <LoadingScreen phase="generating" extra={generatingProgress || undefined} />
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
