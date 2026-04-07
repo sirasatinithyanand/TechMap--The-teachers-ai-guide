@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
-import { Download, LayoutDashboard, ChevronRight, BookOpen, Edit3 } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Download, LayoutDashboard, ChevronRight, BookOpen, Edit3, FileText, FileType } from 'lucide-react'
 import AppHeader from '@/components/AppHeader'
 import type { Course, Lecture } from '@/lib/api'
 import { getCourse, listLectures, exportLecturesWithNotes } from '@/lib/api'
@@ -20,8 +20,10 @@ export default function LecturesPage() {
   const [lectures, setLectures] = useState<Lecture[]>([])
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
+  const [showFormatModal, setShowFormatModal] = useState(false)
 
-  async function handleExport() {
+  async function handleExport(format: 'txt' | 'pdf') {
+    setShowFormatModal(false)
     setExporting(true)
     try {
       const notes: Record<string, string> = {}
@@ -29,11 +31,11 @@ export default function LecturesPage() {
         const n = localStorage.getItem(`tm_notes_${lec.id}`)
         if (n?.trim()) notes[lec.id] = n
       })
-      const blob = await exportLecturesWithNotes(id, notes)
+      const blob = await exportLecturesWithNotes(id, notes, format)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${(course?.course_name || 'course').replace(/\s+/g, '_')}_lectures.zip`
+      a.download = `${(course?.course_name || 'course').replace(/\s+/g, '_')}_lectures_${format}.zip`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -81,7 +83,7 @@ export default function LecturesPage() {
             </motion.button>
             <motion.button
               whileTap={{ scale: 0.97 }}
-              onClick={handleExport}
+              onClick={() => setShowFormatModal(true)}
               disabled={exporting}
               className="flex items-center gap-1.5 font-label text-xs text-on-surface-variant hover:text-on-surface border border-outline-variant rounded-full px-3 py-1.5 transition-colors disabled:opacity-40"
             >
@@ -173,6 +175,68 @@ export default function LecturesPage() {
           </motion.div>
         )}
       </motion.div>
+
+      {/* Format picker modal */}
+      <AnimatePresence>
+        {showFormatModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
+            onClick={() => setShowFormatModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 8 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-surface-container-lowest rounded-2xl p-6 w-full max-w-xs shadow-xl"
+            >
+              <h3 className="font-headline font-[540] text-base tracking-[-0.02em] text-on-surface mb-1">
+                Export format
+              </h3>
+              <p className="font-label text-xs text-on-surface-variant mb-5">
+                Each lecture becomes a file inside the ZIP. Your notes are included in both.
+              </p>
+
+              <div className="space-y-2">
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleExport('pdf')}
+                  className="w-full flex items-center gap-4 text-left rounded-xl px-4 py-3.5 border border-outline-variant hover:border-on-surface bg-surface-container-low hover:bg-surface-container transition-colors group"
+                >
+                  <FileType className="w-5 h-5 text-on-surface-variant group-hover:text-on-surface shrink-0 transition-colors" />
+                  <div>
+                    <p className="font-label text-sm font-semibold text-on-surface">PDF</p>
+                    <p className="font-label text-[10px] text-on-surface-variant mt-0.5">Formatted, ready to print or share</p>
+                  </div>
+                </motion.button>
+
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleExport('txt')}
+                  className="w-full flex items-center gap-4 text-left rounded-xl px-4 py-3.5 border border-outline-variant hover:border-on-surface bg-surface-container-low hover:bg-surface-container transition-colors group"
+                >
+                  <FileText className="w-5 h-5 text-on-surface-variant group-hover:text-on-surface shrink-0 transition-colors" />
+                  <div>
+                    <p className="font-label text-sm font-semibold text-on-surface">Plain text</p>
+                    <p className="font-label text-[10px] text-on-surface-variant mt-0.5">Simple .txt files, easy to edit</p>
+                  </div>
+                </motion.button>
+              </div>
+
+              <button
+                onClick={() => setShowFormatModal(false)}
+                className="w-full mt-4 py-2 font-label text-xs text-on-surface-variant hover:text-on-surface transition-colors"
+              >
+                Cancel
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

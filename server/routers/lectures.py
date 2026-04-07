@@ -277,6 +277,7 @@ def get_resources(lecture_id: str):
 
 class ExportRequest(BaseModel):
     notes: dict[str, str] = {}
+    format: str = "txt"
 
 
 @router.post("/courses/{course_id}/export")
@@ -292,10 +293,11 @@ def export_lectures(course_id: str, body: ExportRequest = ExportRequest()):
     if not lecs_resp.data:
         raise HTTPException(status_code=404, detail="No lectures to export.")
 
-    zip_bytes = build_lectures_zip(course["course_name"], lecs_resp.data, notes=body.notes)
+    fmt = body.format if body.format in ("txt", "pdf") else "txt"
+    zip_bytes = build_lectures_zip(course["course_name"], lecs_resp.data, notes=body.notes, fmt=fmt)
     safe_name = course["course_name"].replace(" ", "_")
     return Response(
         content=zip_bytes,
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{safe_name}_lectures.zip"'},
+        headers={"Content-Disposition": f'attachment; filename="{safe_name}_lectures_{fmt}.zip"'},
     )

@@ -93,7 +93,7 @@ export default function LandingPage() {
             Curriculum Builder
           </p>
           <h1 className="font-headline font-[540] text-4xl tracking-[-0.035em] text-on-surface leading-tight mb-2">
-            Welcome back,<br />{professor.name}.
+            Welcome,<br />{professor.name}.
           </h1>
           <p className="text-sm text-on-surface-variant">
             Describe a new course to get started, or continue with an existing one below.
@@ -216,29 +216,28 @@ export default function LandingPage() {
                   </button>
 
                   {/* Delete control */}
-                  <div className="absolute right-3 bottom-3 flex items-center gap-1.5">
+                  <div className="absolute right-3 bottom-3">
                     {confirmDeleteId === c.id ? (
-                      <>
-                        <span className="font-label text-[10px] text-on-surface-variant">Delete?</span>
+                      <div className="flex items-center gap-2">
                         <button
                           onClick={(e) => handleDelete(e, c.id)}
-                          className="font-label text-[10px] font-semibold text-error hover:underline"
+                          className="font-label text-[10px] text-error hover:underline"
                         >
-                          Yes
+                          Confirm
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null) }}
-                          className="font-label text-[10px] text-on-surface-variant hover:text-on-surface"
+                          className="font-label text-[10px] text-outline hover:text-on-surface-variant"
                         >
                           Cancel
                         </button>
-                      </>
+                      </div>
                     ) : deletingId === c.id ? (
-                      <span className="font-label text-[10px] text-on-surface-variant">Deleting…</span>
+                      <span className="font-label text-[10px] text-outline">Deleting…</span>
                     ) : (
                       <button
                         onClick={(e) => handleDelete(e, c.id)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-surface-container text-on-surface-variant hover:text-error"
+                        className="opacity-0 group-hover:opacity-60 hover:!opacity-100 text-outline hover:text-error transition-all"
                         title="Delete course"
                       >
                         <Trash2 className="w-3 h-3" />

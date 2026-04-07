@@ -232,11 +232,11 @@ export const generateLectures = (courseId: string, teachingStyle?: string) =>
     body: JSON.stringify({ teaching_style: teachingStyle || 'balanced' }),
   })
 
-export const exportLecturesWithNotes = (courseId: string, notes: Record<string, string>) =>
+export const exportLecturesWithNotes = (courseId: string, notes: Record<string, string>, format: 'txt' | 'pdf' = 'txt') =>
   fetch(`${BASE}/api/courses/${courseId}/export`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ notes }),
+    body: JSON.stringify({ notes, format }),
   }).then((r) => {
     if (!r.ok) throw new Error('Export failed')
     return r.blob()

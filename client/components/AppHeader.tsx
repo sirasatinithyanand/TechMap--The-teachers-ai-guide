@@ -42,21 +42,23 @@ export default function AppHeader({ backHref, backLabel, right }: AppHeaderProps
     <header className="sticky top-0 z-20 bg-surface-container-lowest border-b border-outline-variant/40">
       <div className="max-w-[1440px] mx-auto px-6 h-14 flex items-center justify-between gap-4">
         {/* Left */}
-        <div className="flex items-center gap-3 min-w-0">
-          {backHref ? (
-            <motion.div whileHover={{ x: -2 }} transition={{ duration: 0.15 }}>
-              <Link
-                href={backHref}
-                className="flex items-center gap-1.5 text-sm font-label text-on-surface-variant hover:text-on-surface transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                {backLabel || 'Back'}
-              </Link>
-            </motion.div>
-          ) : (
-            <Link href="/" className="font-headline font-[600] tracking-[-0.03em] text-on-surface text-base uppercase select-none">
-              TeachMap
-            </Link>
+        <div className="flex items-center gap-2 min-w-0">
+          <Link href="/" className="font-headline font-[600] tracking-[-0.03em] text-on-surface text-base uppercase select-none shrink-0 hover:opacity-70 transition-opacity">
+            TeachMap
+          </Link>
+          {backHref && (
+            <>
+              <span className="text-outline-variant text-sm">/</span>
+              <motion.div whileHover={{ x: -1 }} transition={{ duration: 0.15 }}>
+                <Link
+                  href={backHref}
+                  className="flex items-center gap-1 text-sm font-label text-on-surface-variant hover:text-on-surface transition-colors"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  {backLabel || 'Back'}
+                </Link>
+              </motion.div>
+            </>
           )}
         </div>
 

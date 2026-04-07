@@ -477,7 +477,6 @@ export default function CurriculumPage() {
               transition={{ type: 'spring', stiffness: 280, damping: 26 }}
               className="bg-surface-container-lowest rounded-2xl p-6 w-full max-w-sm shadow-xl"
             >
-              <p className="font-label text-[10px] tracking-[0.18em] text-on-surface-variant uppercase mb-1">Step 1 of 1</p>
               <h3 className="font-headline font-[540] text-lg tracking-[-0.02em] text-on-surface mb-1">
                 Teaching style
               </h3>
