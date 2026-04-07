@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
+import { ArrowRight } from 'lucide-react'
 import { authLogin, authRegister } from '@/lib/api'
 
 export default function LoginPage() {
@@ -30,63 +32,129 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-4 bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">TeachMap</h1>
-          <p className="text-gray-500 mt-1 text-sm">AI-powered curriculum for professors</p>
+    <main className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface">
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="w-full max-w-sm"
+      >
+        {/* Logo */}
+        <div className="text-center mb-10">
+          <p className="font-label text-xs tracking-[0.22em] text-on-surface-variant uppercase mb-3">
+            Curriculum Builder
+          </p>
+          <h1 className="font-headline font-[540] text-4xl tracking-[-0.035em] text-on-surface leading-tight">
+            TeachMap
+          </h1>
+          <p className="font-label text-sm text-on-surface-variant mt-2">
+            AI-powered curriculum for professors
+          </p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
+        {/* Card */}
+        <div className="bg-surface-container-lowest rounded-lg shadow-card overflow-hidden">
           {/* Tabs */}
-          <div className="flex border-b">
+          <div className="flex border-b border-surface-container">
             {(['login', 'register'] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => { setTab(t); setError('') }}
-                className={`flex-1 py-3 text-sm font-semibold transition ${
-                  tab === t ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-400 hover:text-gray-600'
+                className={`flex-1 py-3 font-label text-xs font-semibold tracking-wide transition-colors relative ${
+                  tab === t ? 'text-on-surface' : 'text-outline hover:text-on-surface-variant'
                 }`}
               >
                 {t === 'login' ? 'Log in' : 'Sign up'}
+                {tab === t && (
+                  <motion.div
+                    layoutId="tab-underline"
+                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-on-surface"
+                  />
+                )}
               </button>
             ))}
           </div>
 
-          <form onSubmit={handleSubmit} className="p-6 space-y-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Your name</label>
-              <input
-                className="w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                placeholder="e.g. Dr. Smith"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                autoFocus
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Password</label>
-              <input
-                type="password"
-                className="w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-
-            {error && <p className="text-red-500 text-xs">{error}</p>}
-
-            <button
-              type="submit"
-              disabled={loading || !name.trim() || !password}
-              className="w-full py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 transition"
+          <AnimatePresence mode="wait">
+            <motion.form
+              key={tab}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.18 }}
+              onSubmit={handleSubmit}
+              className="p-6 space-y-4"
             >
-              {loading ? '...' : tab === 'login' ? 'Log in' : 'Create account'}
-            </button>
-          </form>
+              <div>
+                <label className="font-label text-xs tracking-wide text-on-surface-variant uppercase block mb-1.5">
+                  Your name
+                </label>
+                <input
+                  className="w-full bg-surface-container-low rounded-lg px-4 py-2.5 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-outline transition"
+                  placeholder="e.g. Dr. Smith"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="font-label text-xs tracking-wide text-on-surface-variant uppercase block mb-1.5">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  className="w-full bg-surface-container-low rounded-lg px-4 py-2.5 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-outline transition"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+
+              <AnimatePresence>
+                {error && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="font-label text-xs text-error"
+                  >
+                    {error}
+                  </motion.p>
+                )}
+              </AnimatePresence>
+
+              <motion.button
+                type="submit"
+                disabled={loading || !name.trim() || !password}
+                whileTap={{ scale: 0.98 }}
+                className="flex items-center justify-center gap-2 w-full py-3 bg-primary text-on-primary font-label text-sm font-semibold rounded-full hover:bg-primary-container disabled:opacity-40 transition-colors"
+              >
+                {loading ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-on-primary border-t-transparent rounded-full animate-spin" />
+                    {tab === 'login' ? 'Logging in…' : 'Creating account…'}
+                  </>
+                ) : (
+                  <>
+                    {tab === 'login' ? 'Log in' : 'Create account'}
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </motion.button>
+            </motion.form>
+          </AnimatePresence>
         </div>
-      </div>
+
+        <p className="font-label text-xs text-outline text-center mt-6">
+          {tab === 'login' ? 'New here? ' : 'Already have an account? '}
+          <button
+            onClick={() => { setTab(tab === 'login' ? 'register' : 'login'); setError('') }}
+            className="text-on-surface-variant hover:text-on-surface underline underline-offset-2 transition-colors"
+          >
+            {tab === 'login' ? 'Sign up →' : 'Log in →'}
+          </button>
+        </p>
+      </motion.div>
     </main>
   )
 }

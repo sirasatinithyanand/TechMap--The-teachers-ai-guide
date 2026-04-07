@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
 import { listLectures, submitFeedback } from '@/lib/api'
 
 const RATINGS = [
@@ -46,87 +47,111 @@ export default function FeedbackPage() {
 
   if (done) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-white to-orange-50 px-4">
-        <div className="text-center">
-          <div className="text-7xl mb-5 animate-bounce">🙏</div>
-          <h1 className="text-2xl font-bold text-gray-900">Thanks for your feedback!</h1>
-          <p className="text-gray-400 mt-2 text-sm max-w-xs mx-auto">
-            Your professor will use this to make the next lecture even better.
+      <div className="min-h-screen flex items-center justify-center bg-surface px-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 200, damping: 22 }}
+          className="text-center"
+        >
+          <div className="text-6xl mb-5">🙏</div>
+          <h1 className="font-headline font-[540] text-2xl tracking-[-0.03em] text-on-surface mb-2">
+            Thanks for your feedback!
+          </h1>
+          <p className="font-label text-sm text-on-surface-variant max-w-xs mx-auto">
+            Your professor will use this to improve the next lecture.
           </p>
-          <div className="mt-6 inline-flex items-center gap-2 bg-amber-100 text-amber-700 text-sm font-medium px-4 py-2 rounded-full">
-            ⭐ Rating submitted
+          <div className="mt-6 inline-flex items-center gap-2 bg-surface-container text-on-surface-variant font-label text-sm font-medium px-4 py-2 rounded-full">
+            Rating submitted
           </div>
-        </div>
+        </motion.div>
       </div>
     )
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-orange-50 flex items-center justify-center px-4">
+    <main className="min-h-screen bg-surface flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-1.5 bg-amber-100 text-amber-700 text-xs font-semibold px-3 py-1 rounded-full mb-3">
-            ⭐ Class Feedback
+          <div className="inline-flex items-center gap-1.5 bg-surface-container text-on-surface-variant font-label text-xs font-semibold px-3 py-1 rounded-full mb-3">
+            Class Feedback
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">How was today's class?</h1>
-          {lectureTitle && <p className="text-gray-400 text-sm mt-1">{lectureTitle}</p>}
+          <h1 className="font-headline font-[540] text-2xl tracking-[-0.03em] text-on-surface">
+            How was today&apos;s class?
+          </h1>
+          {lectureTitle && (
+            <p className="font-label text-sm text-on-surface-variant mt-1">{lectureTitle}</p>
+          )}
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-3xl shadow-sm border p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="bg-surface-container-lowest rounded-lg shadow-card p-6 space-y-6">
           {/* Emoji rating */}
           <div>
-            <p className="text-sm font-medium text-gray-600 text-center mb-4">Tap to rate</p>
+            <p className="font-label text-xs text-on-surface-variant text-center mb-4">Tap to rate</p>
             <div className="flex justify-center gap-3">
               {RATINGS.map(({ value, emoji }) => (
-                <button
+                <motion.button
                   key={value}
                   type="button"
                   onClick={() => setRating(value)}
                   onMouseEnter={() => setHovered(value)}
                   onMouseLeave={() => setHovered(null)}
-                  className={`flex flex-col items-center transition-all duration-150 ${
-                    active === value ? 'scale-125' : 'scale-100 opacity-50 hover:opacity-80'
-                  }`}
+                  whileTap={{ scale: 0.9 }}
+                  animate={{ scale: active === value ? 1.25 : 1, opacity: active === value ? 1 : 0.5 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                  className="flex flex-col items-center"
                 >
                   <span className="text-3xl">{emoji}</span>
                   {active === value && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1" />
+                    <motion.span
+                      layoutId="rating-dot"
+                      className="w-1.5 h-1.5 rounded-full bg-on-surface mt-1"
+                    />
                   )}
-                </button>
+                </motion.button>
               ))}
             </div>
 
-            {/* Label */}
             <div className="h-7 flex items-center justify-center mt-3">
-              {activeRating && (
-                <p className="text-sm font-semibold text-amber-600 animate-pulse">
-                  {activeRating.label}
-                </p>
-              )}
+              <AnimatePresence mode="wait">
+                {activeRating && (
+                  <motion.p
+                    key={activeRating.value}
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.15 }}
+                    className="font-label text-sm font-semibold text-on-surface"
+                  >
+                    {activeRating.label}
+                  </motion.p>
+                )}
+              </AnimatePresence>
             </div>
           </div>
 
           {/* Comment */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Any thoughts? <span className="text-gray-400 font-normal">(optional)</span>
+            <label className="font-label text-xs tracking-wide text-on-surface-variant uppercase block mb-2">
+              Any thoughts? <span className="normal-case text-outline">(optional)</span>
             </label>
             <textarea
-              className="w-full border-2 border-gray-100 rounded-2xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-amber-300 min-h-[90px] bg-gray-50"
-              placeholder="What clicked? What didn't? Your prof wants to know..."
+              className="w-full bg-surface-container-low rounded-lg px-4 py-3 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-outline min-h-[90px] text-on-surface placeholder:text-outline"
+              placeholder="What clicked? What didn't?"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
             />
           </div>
 
-          <button
+          <motion.button
             type="submit"
             disabled={!rating || submitting}
-            className="w-full py-3.5 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-2xl font-bold text-sm hover:opacity-90 disabled:opacity-40 transition shadow-sm"
+            whileTap={{ scale: 0.98 }}
+            className="w-full py-3.5 bg-primary text-on-primary font-label text-sm font-semibold rounded-full hover:bg-primary-container disabled:opacity-40 transition-colors"
           >
-            {submitting ? 'Submitting...' : 'Submit Feedback ✓'}
-          </button>
+            {submitting ? 'Submitting…' : 'Submit Feedback'}
+          </motion.button>
         </form>
       </div>
     </main>
