@@ -56,13 +56,24 @@ Respond ONLY in JSON:
     return _parse_json(_chat(prompt))
 
 
+_STYLE_INSTRUCTIONS = {
+    "balanced": "Present a balanced mix of theory and practical examples.",
+    "examples": "Lead every concept with a real-world scenario or case study before explaining theory. Use concrete, relatable examples throughout.",
+    "theory": "Prioritise theoretical foundations: formal definitions, proofs, derivations, and academic rigour. Keep examples minimal.",
+    "interactive": "Frame content around discussion questions and in-class activities. Include explicit prompts for class participation after each major point.",
+    "concise": "Write in a concise, bullet-point style. Prioritise information density. Avoid lengthy prose — prefer short sentences and structured lists.",
+}
+
+
 def generate_lectures(
     curriculum_chapters: list,
     course_name: str,
+    teaching_style: str = "balanced",
     feedback_context: dict | None = None,
 ) -> list[dict]:
     """Generate all lectures in parallel — 4x faster than sequential."""
     total = len(curriculum_chapters)
+    style_instruction = _STYLE_INSTRUCTIONS.get(teaching_style, _STYLE_INSTRUCTIONS["balanced"])
 
     def _build_prompt(i: int, chapter: dict) -> str:
         n = i + 1
@@ -85,6 +96,8 @@ Weak areas: {feedback_context.get("weak_topics", "none")} — adjust depth accor
 Chapter: {chapter.get("title")}
 Topics: {", ".join(chapter.get("topics", []))}
 Learning outcomes: {", ".join(chapter.get("learning_outcomes", []))}
+
+Teaching style instruction: {style_instruction}
 {revision_block}{feedback_block}
 
 Respond ONLY in JSON:

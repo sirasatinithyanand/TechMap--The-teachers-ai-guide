@@ -54,3 +54,13 @@ def get_course(course_id: str):
     if not resp.data:
         raise HTTPException(status_code=404, detail="Course not found")
     return Course(**resp.data)
+
+
+@router.delete("/courses/{course_id}", status_code=204)
+def delete_course(course_id: str):
+    """Delete a course and all associated data (cascades via FK constraints)."""
+    resp = supabase.table("courses").select("id").eq("id", course_id).limit(1).execute()
+    if not resp.data:
+        raise HTTPException(status_code=404, detail="Course not found")
+    supabase.table("courses").delete().eq("id", course_id).execute()
+    return None

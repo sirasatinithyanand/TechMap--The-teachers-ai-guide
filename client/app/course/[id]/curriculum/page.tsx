@@ -23,6 +23,14 @@ const MapboxMap = dynamic(() => import('@/components/MapboxMap'), { ssr: false }
 
 type Phase = 'loading' | 'ready' | 'blending' | 'finalizing' | 'generating'
 
+const TEACHING_STYLES = [
+  { id: 'balanced', label: 'Balanced', desc: 'Equal mix of theory and practical examples' },
+  { id: 'examples', label: 'Real-world examples', desc: 'Lead with scenarios, case studies, and applications' },
+  { id: 'theory', label: 'Theory-first', desc: 'Deep formal definitions, proofs, and academic rigour' },
+  { id: 'interactive', label: 'Interactive', desc: 'Discussion prompts, activities, and participation hooks' },
+  { id: 'concise', label: 'Concise & fast-paced', desc: 'Bullet-point style, high density, minimal prose' },
+]
+
 const itemVariants = {
   hidden: { opacity: 0, y: 8 },
   show: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 220, damping: 24 } },
@@ -43,6 +51,8 @@ export default function CurriculumPage() {
   const [editingIdx, setEditingIdx] = useState<number | null>(null)
   const [showBaseline, setShowBaseline] = useState(false)
   const [confirmRegen, setConfirmRegen] = useState(false)
+  const [showStyleModal, setShowStyleModal] = useState(false)
+  const [teachingStyle, setTeachingStyle] = useState('balanced')
 
   useEffect(() => {
     getCourse(id)
@@ -110,7 +120,8 @@ export default function CurriculumPage() {
     }
   }
 
-  async function handleFinalize() {
+  async function handleFinalize(style: string) {
+    setShowStyleModal(false)
     setError('')
     try {
       setPhase('finalizing')
@@ -118,7 +129,7 @@ export default function CurriculumPage() {
       await finalizeCurriculum(id)
       setPhase('generating')
       setGeneratingProgress(`Generating ${chapters.length} lectures…`)
-      await generateLectures(id)
+      await generateLectures(id, style)
       router.push(`/course/${id}/lectures`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
@@ -226,7 +237,7 @@ export default function CurriculumPage() {
             </motion.button>
             <motion.button
               whileTap={{ scale: 0.98 }}
-              onClick={handleFinalize}
+              onClick={() => setShowStyleModal(true)}
               disabled={chapters.length === 0}
               className="font-label text-xs font-semibold bg-primary text-on-primary rounded-full px-4 py-1.5 hover:bg-primary-container disabled:opacity-40 transition-colors"
             >
@@ -449,6 +460,72 @@ export default function CurriculumPage() {
           )}
         </div>
       </div>
+
+      {/* Teaching style modal */}
+      <AnimatePresence>
+        {showStyleModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 8 }}
+              transition={{ type: 'spring', stiffness: 280, damping: 26 }}
+              className="bg-surface-container-lowest rounded-2xl p-6 w-full max-w-sm shadow-xl"
+            >
+              <p className="font-label text-[10px] tracking-[0.18em] text-on-surface-variant uppercase mb-1">Step 1 of 1</p>
+              <h3 className="font-headline font-[540] text-lg tracking-[-0.02em] text-on-surface mb-1">
+                Teaching style
+              </h3>
+              <p className="font-label text-xs text-on-surface-variant mb-5">
+                Lectures will be written to match your preferred delivery approach.
+              </p>
+
+              <div className="space-y-2 mb-6">
+                {TEACHING_STYLES.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setTeachingStyle(s.id)}
+                    className={`w-full text-left rounded-lg px-4 py-3 border transition-colors ${
+                      teachingStyle === s.id
+                        ? 'border-on-surface bg-surface-container'
+                        : 'border-outline-variant hover:border-outline bg-surface-container-low'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="font-label text-xs font-semibold text-on-surface">{s.label}</p>
+                      {teachingStyle === s.id && (
+                        <span className="w-2 h-2 rounded-full bg-on-surface shrink-0" />
+                      )}
+                    </div>
+                    <p className="font-label text-[10px] text-on-surface-variant mt-0.5">{s.desc}</p>
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowStyleModal(false)}
+                  className="flex-1 py-2.5 font-label text-xs text-on-surface-variant border border-outline-variant rounded-full hover:border-outline transition-colors"
+                >
+                  Cancel
+                </button>
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleFinalize(teachingStyle)}
+                  className="flex-1 py-2.5 font-label text-xs font-semibold bg-primary text-on-primary rounded-full hover:bg-primary-container transition-colors"
+                >
+                  Generate Lectures →
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

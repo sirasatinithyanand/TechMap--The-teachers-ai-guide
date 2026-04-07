@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowRight, BookOpen, Clock } from 'lucide-react'
+import { ArrowRight, BookOpen, Clock, Trash2 } from 'lucide-react'
 import AppHeader from '@/components/AppHeader'
-import { parseCourse, getProfessorCourses } from '@/lib/api'
+import { parseCourse, getProfessorCourses, deleteCourse } from '@/lib/api'
 import type { Course } from '@/lib/api'
 
 interface Professor {
@@ -26,6 +26,26 @@ export default function LandingPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [loadingCourses, setLoadingCourses] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+
+  async function handleDelete(e: React.MouseEvent, courseId: string) {
+    e.stopPropagation()
+    if (confirmDeleteId !== courseId) {
+      setConfirmDeleteId(courseId)
+      return
+    }
+    setDeletingId(courseId)
+    setConfirmDeleteId(null)
+    try {
+      await deleteCourse(courseId)
+      setCourses((prev) => prev.filter((c) => c.id !== courseId))
+    } catch {
+      // silently ignore — user can retry
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   useEffect(() => {
     const stored = localStorage.getItem('tm_professor')
@@ -159,40 +179,73 @@ export default function LandingPage() {
               variants={{ show: { transition: { staggerChildren: 0.05 } } }}
             >
               {courses.map((c) => (
-                <motion.button
+                <motion.div
                   key={c.id}
                   variants={itemVariants}
-                  whileHover={{ y: -1 }}
-                  whileTap={{ scale: 0.99 }}
-                  onClick={() => router.push(c.status === 'active' ? `/course/${c.id}/lectures` : `/course/${c.id}/dashboard`)}
-                  className="w-full text-left bg-surface-container-lowest rounded-lg px-5 py-4 shadow-card hover:bg-surface-container-low transition-colors group"
+                  className="relative bg-surface-container-lowest rounded-lg shadow-card group"
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-headline font-[500] text-sm text-on-surface truncate group-hover:text-primary-container transition-colors">
-                        {c.course_name}
-                      </p>
-                      <p className="font-label text-xs text-on-surface-variant mt-0.5 truncate">
-                        {c.university_name}
-                        {c.course_code ? ` · ${c.course_code}` : ''}
-                        {c.grade_level ? ` · ${c.grade_level}` : ''}
-                      </p>
+                  <button
+                    onClick={() => router.push(c.status === 'active' ? `/course/${c.id}/lectures` : `/course/${c.id}/curriculum`)}
+                    className="w-full text-left px-5 py-4 hover:bg-surface-container-low transition-colors rounded-lg"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-headline font-[500] text-sm text-on-surface truncate group-hover:text-primary-container transition-colors">
+                          {c.course_name}
+                        </p>
+                        <p className="font-label text-xs text-on-surface-variant mt-0.5 truncate">
+                          {c.university_name}
+                          {c.course_code ? ` · ${c.course_code}` : ''}
+                          {c.grade_level ? ` · ${c.grade_level}` : ''}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {c.status === 'active' ? (
+                          <span className="font-label text-[10px] tracking-wide uppercase px-2 py-0.5 bg-on-surface text-surface-container-lowest rounded-full">
+                            Active
+                          </span>
+                        ) : (
+                          <span className="font-label text-[10px] tracking-wide uppercase px-2 py-0.5 bg-surface-container text-on-surface-variant rounded-full flex items-center gap-1">
+                            <Clock className="w-2.5 h-2.5" />
+                            Draft
+                          </span>
+                        )}
+                        <ArrowRight className="w-3.5 h-3.5 text-outline group-hover:text-on-surface transition-colors" />
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {c.status === 'active' ? (
-                        <span className="font-label text-[10px] tracking-wide uppercase px-2 py-0.5 bg-on-surface text-surface-container-lowest rounded-full">
-                          Active
-                        </span>
-                      ) : (
-                        <span className="font-label text-[10px] tracking-wide uppercase px-2 py-0.5 bg-surface-container text-on-surface-variant rounded-full flex items-center gap-1">
-                          <Clock className="w-2.5 h-2.5" />
-                          Draft
-                        </span>
-                      )}
-                      <ArrowRight className="w-3.5 h-3.5 text-outline group-hover:text-on-surface transition-colors" />
-                    </div>
+                  </button>
+
+                  {/* Delete control */}
+                  <div className="absolute right-3 bottom-3 flex items-center gap-1.5">
+                    {confirmDeleteId === c.id ? (
+                      <>
+                        <span className="font-label text-[10px] text-on-surface-variant">Delete?</span>
+                        <button
+                          onClick={(e) => handleDelete(e, c.id)}
+                          className="font-label text-[10px] font-semibold text-error hover:underline"
+                        >
+                          Yes
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null) }}
+                          className="font-label text-[10px] text-on-surface-variant hover:text-on-surface"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : deletingId === c.id ? (
+                      <span className="font-label text-[10px] text-on-surface-variant">Deleting…</span>
+                    ) : (
+                      <button
+                        onClick={(e) => handleDelete(e, c.id)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-surface-container text-on-surface-variant hover:text-error"
+                        title="Delete course"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
                   </div>
-                </motion.button>
+                </motion.div>
               ))}
             </motion.div>
           )}

@@ -163,6 +163,11 @@ export const createCourse = (data: {
 
 export const getCourse = (id: string) => req<Course>(`/api/courses/${id}`)
 
+export const deleteCourse = (id: string) =>
+  fetch(`${BASE}/api/courses/${id}`, { method: 'DELETE' }).then((r) => {
+    if (!r.ok && r.status !== 204) throw new Error(`Delete failed: ${r.status}`)
+  })
+
 // ---- Curriculum ----
 
 export const generateBaseline = (courseId: string) =>
@@ -221,9 +226,20 @@ export const uploadFile = (courseId: string, file: File) => {
 
 // ---- Lectures ----
 
-export const generateLectures = (courseId: string) =>
+export const generateLectures = (courseId: string, teachingStyle?: string) =>
   req<{ generated: number; lectures: Lecture[] }>(`/api/courses/${courseId}/lectures/generate`, {
     method: 'POST',
+    body: JSON.stringify({ teaching_style: teachingStyle || 'balanced' }),
+  })
+
+export const exportLecturesWithNotes = (courseId: string, notes: Record<string, string>) =>
+  fetch(`${BASE}/api/courses/${courseId}/export`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ notes }),
+  }).then((r) => {
+    if (!r.ok) throw new Error('Export failed')
+    return r.blob()
   })
 
 export const listLectures = (courseId: string) =>

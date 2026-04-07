@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
-import { BookOpen, MessageSquare, Star, Target } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { BookOpen, MessageSquare, Star, Target, Send, ChevronDown, ChevronUp } from 'lucide-react'
 import AppHeader from '@/components/AppHeader'
-import type { Course, Lecture, FeedbackSummary, QuizResult } from '@/lib/api'
+import type { Course, Lecture, FeedbackSummary, QuizResult, Question, Reply } from '@/lib/api'
 import {
   getCourse,
   listLectures,
@@ -13,13 +13,15 @@ import {
   getQuizResults,
   listQuestions,
   getQuiz,
+  postReply,
+  getReplies,
 } from '@/lib/api'
 
 interface LectureSummary {
   lecture: Lecture
   feedback: FeedbackSummary | null
   quiz: QuizResult | null
-  questionCount: number
+  questions: Question[]
 }
 
 function SkeletonBlock({ className }: { className?: string }) {
@@ -91,6 +93,39 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<LectureSummary | null>(null)
 
+  // Reply state
+  const [expandedQId, setExpandedQId] = useState<string | null>(null)
+  const [threadReplies, setThreadReplies] = useState<Record<string, Reply[]>>({})
+  const [replyDraft, setReplyDraft] = useState('')
+  const [replyLoading, setReplyLoading] = useState(false)
+
+  async function openReplyThread(questionId: string) {
+    if (expandedQId === questionId) {
+      setExpandedQId(null)
+      return
+    }
+    setExpandedQId(questionId)
+    setReplyDraft('')
+    if (!threadReplies[questionId]) {
+      try {
+        const r = await getReplies(questionId)
+        setThreadReplies((prev) => ({ ...prev, [questionId]: r }))
+      } catch {}
+    }
+  }
+
+  async function submitReply(questionId: string) {
+    if (!replyDraft.trim()) return
+    setReplyLoading(true)
+    try {
+      const reply = await postReply(questionId, replyDraft, true)
+      setThreadReplies((prev) => ({ ...prev, [questionId]: [...(prev[questionId] || []), reply] }))
+      setReplyDraft('')
+    } catch {} finally {
+      setReplyLoading(false)
+    }
+  }
+
   useEffect(() => {
     async function load() {
       const [c, lectures] = await Promise.all([getCourse(id), listLectures(id)])
@@ -106,7 +141,7 @@ export default function DashboardPage() {
             const q = await getQuiz(lec.id)
             quiz = await getQuizResults(q.id)
           } catch {}
-          return { lecture: lec, feedback, quiz, questionCount: questions.length }
+          return { lecture: lec, feedback, quiz, questions: questions as Question[] }
         })
       )
       setSummaries(results)
@@ -129,7 +164,7 @@ export default function DashboardPage() {
       ? quizzedSummaries.reduce((a, s) => a + (s.quiz?.avg_score || 0), 0) / quizzedSummaries.length
       : null
 
-  const totalQuestions = summaries.reduce((a, s) => a + s.questionCount, 0)
+  const totalQuestions = summaries.reduce((a, s) => a + s.questions.length, 0)
 
   const stats = [
     { label: 'Lectures', value: summaries.length, suffix: '', Icon: STAT_ICONS[0] },
@@ -192,6 +227,7 @@ export default function DashboardPage() {
               const isSelected = selected?.lecture.id === s.lecture.id
               const rating = s.feedback?.avg_rating
               const quizScore = s.quiz?.avg_score
+              const escalatedCount = s.questions.filter(q => q.escalated_to_prof).length
               return (
                 <motion.button
                   key={s.lecture.id}
@@ -225,6 +261,9 @@ export default function DashboardPage() {
                         {!rating && quizScore == null && (
                           <span className={`font-label text-[10px] ${isSelected ? 'text-surface-container-high' : 'text-outline'}`}>No data</span>
                         )}
+                        {escalatedCount > 0 && (
+                          <span className="font-label text-[10px] text-error font-semibold">⚑ {escalatedCount}</span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -247,7 +286,7 @@ export default function DashboardPage() {
                   Lecture {selected.lecture.lecture_number}: {selected.lecture.title}
                 </h2>
                 <p className="font-label text-xs text-on-surface-variant mb-5">
-                  {selected.questionCount} student question{selected.questionCount !== 1 ? 's' : ''} ·{' '}
+                  {selected.questions.length} student question{selected.questions.length !== 1 ? 's' : ''} ·{' '}
                   {selected.feedback?.total_responses || 0} feedback response{(selected.feedback?.total_responses || 0) !== 1 ? 's' : ''}
                 </p>
 
@@ -332,6 +371,115 @@ export default function DashboardPage() {
                         </li>
                       ))}
                     </ul>
+                  </div>
+                )}
+
+                {/* Q&A Forum questions */}
+                {selected.questions.length > 0 && (
+                  <div className="mb-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="font-label text-xs tracking-wide text-on-surface-variant uppercase">
+                        Student Questions
+                      </p>
+                      <span className="font-label text-[10px] text-outline">
+                        {selected.questions.filter(q => q.escalated_to_prof).length} escalated to you
+                      </span>
+                    </div>
+                    <ul className="space-y-2">
+                      {[
+                        ...selected.questions.filter(q => q.escalated_to_prof),
+                        ...selected.questions.filter(q => !q.escalated_to_prof),
+                      ].slice(0, 6).map((q) => {
+                        const isOpen = expandedQId === q.id
+                        const replies = threadReplies[q.id] || []
+                        return (
+                          <li
+                            key={q.id}
+                            className={`rounded-lg overflow-hidden border ${
+                              q.escalated_to_prof
+                                ? 'border-error/20 bg-error/8'
+                                : 'border-outline-variant/30 bg-surface-container-low'
+                            }`}
+                          >
+                            {/* Question row */}
+                            <div className="px-4 py-2.5">
+                              <p className="font-label text-xs text-on-surface leading-relaxed">
+                                {q.question_text}
+                              </p>
+                              <div className="flex items-center justify-between mt-1.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-label text-[10px] text-outline">↑ {q.upvotes}</span>
+                                  {q.escalated_to_prof && (
+                                    <span className="font-label text-[10px] text-error font-semibold">⚑ Forwarded to you</span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => openReplyThread(q.id)}
+                                  className="flex items-center gap-1 font-label text-[10px] text-on-surface-variant hover:text-on-surface transition-colors"
+                                >
+                                  {isOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                  {isOpen ? 'Close' : (replies.length > 0 ? `${replies.length} replies` : 'Reply')}
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Reply thread */}
+                            <AnimatePresence>
+                              {isOpen && (
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: 'auto', opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  transition={{ duration: 0.2 }}
+                                  className="overflow-hidden border-t border-outline-variant/20"
+                                >
+                                  <div className="px-4 py-3 bg-surface-container-lowest space-y-2">
+                                    {/* Existing replies */}
+                                    {replies.map((r) => (
+                                      <div key={r.id} className={`rounded px-3 py-2 ${r.is_professor ? 'bg-on-surface/5 border-l-2 border-on-surface' : r.is_ai ? 'bg-surface-container' : 'bg-surface-container-low'}`}>
+                                        <p className="font-label text-[10px] font-semibold text-on-surface-variant mb-0.5">
+                                          {r.is_professor ? 'You (Professor)' : r.is_ai ? 'AI Assistant' : 'Student'}
+                                        </p>
+                                        <p className="font-label text-xs text-on-surface leading-relaxed">{r.reply_text}</p>
+                                      </div>
+                                    ))}
+
+                                    {/* Reply input */}
+                                    <div className="flex gap-2 pt-1">
+                                      <textarea
+                                        className="flex-1 bg-surface-container rounded px-3 py-2 text-xs text-on-surface placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-outline resize-none min-h-[52px]"
+                                        placeholder="Write your reply as professor…"
+                                        value={replyDraft}
+                                        onChange={(e) => setReplyDraft(e.target.value)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter' && !e.shiftKey) {
+                                            e.preventDefault()
+                                            submitReply(q.id)
+                                          }
+                                        }}
+                                      />
+                                      <motion.button
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={() => submitReply(q.id)}
+                                        disabled={replyLoading || !replyDraft.trim()}
+                                        className="self-end p-2 bg-on-surface text-surface-container-lowest rounded-lg disabled:opacity-40 hover:bg-on-surface/80 transition-colors"
+                                      >
+                                        <Send className="w-3.5 h-3.5" />
+                                      </motion.button>
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                    {selected.questions.length > 6 && (
+                      <p className="font-label text-[10px] text-outline mt-2 text-center">
+                        +{selected.questions.length - 6} more in the forum
+                      </p>
+                    )}
                   </div>
                 )}
 

@@ -3,7 +3,7 @@ import json
 import zipfile
 
 
-def build_lectures_zip(course_name: str, lectures: list[dict]) -> bytes:
+def build_lectures_zip(course_name: str, lectures: list[dict], notes: dict[str, str] | None = None) -> bytes:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for lecture in lectures:
@@ -46,6 +46,16 @@ def build_lectures_zip(course_name: str, lectures: list[dict]) -> bytes:
                 "-" * 40,
                 content.get("main_content", ""),
             ]
+
+            lecture_id = str(lecture.get("id", ""))
+            professor_note = (notes or {}).get(lecture_id, "").strip()
+            if professor_note:
+                lines += [
+                    "",
+                    "PROFESSOR NOTES",
+                    "-" * 40,
+                    professor_note,
+                ]
 
             zf.writestr(filename, "\n".join(lines))
 

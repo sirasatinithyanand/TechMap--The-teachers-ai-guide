@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
+from pydantic import BaseModel
 from models.lectures import Lecture, LectureUpdate
 from services.supabase_client import supabase
 from services.curricullm import generate_lectures, generate_quiz, prepare_next_lecture
@@ -31,8 +32,12 @@ def _get_final_curriculum(course_id: str) -> dict:
     return resp.data[0]
 
 
+class GenerateRequest(BaseModel):
+    teaching_style: str = "balanced"
+
+
 @router.post("/courses/{course_id}/lectures/generate")
-def generate_all_lectures(course_id: str):
+def generate_all_lectures(course_id: str, body: GenerateRequest = GenerateRequest()):
     course = _get_course(course_id)
     curriculum = _get_final_curriculum(course_id)
     chapters = curriculum["content"].get("chapters", [])
@@ -44,7 +49,7 @@ def generate_all_lectures(course_id: str):
     supabase.table("lectures").delete().eq("course_id", course_id).execute()
 
     try:
-        lectures_data = generate_lectures(chapters, course["course_name"])
+        lectures_data = generate_lectures(chapters, course["course_name"], teaching_style=body.teaching_style)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"CurricuLLM failed: {e}")
 
@@ -270,8 +275,12 @@ def get_resources(lecture_id: str):
     return resp.data or []
 
 
-@router.get("/courses/{course_id}/export")
-def export_lectures(course_id: str):
+class ExportRequest(BaseModel):
+    notes: dict[str, str] = {}
+
+
+@router.post("/courses/{course_id}/export")
+def export_lectures(course_id: str, body: ExportRequest = ExportRequest()):
     course = _get_course(course_id)
     lecs_resp = (
         supabase.table("lectures")
@@ -283,7 +292,7 @@ def export_lectures(course_id: str):
     if not lecs_resp.data:
         raise HTTPException(status_code=404, detail="No lectures to export.")
 
-    zip_bytes = build_lectures_zip(course["course_name"], lecs_resp.data)
+    zip_bytes = build_lectures_zip(course["course_name"], lecs_resp.data, notes=body.notes)
     safe_name = course["course_name"].replace(" ", "_")
     return Response(
         content=zip_bytes,

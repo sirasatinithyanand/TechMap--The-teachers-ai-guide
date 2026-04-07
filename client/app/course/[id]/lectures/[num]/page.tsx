@@ -91,6 +91,8 @@ export default function LectureDetailPage() {
   const [quizReady, setQuizReady] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
   const [sharedToForum, setSharedToForum] = useState<Set<string>>(new Set())
+  const [notes, setNotes] = useState('')
+  const [notesSaved, setNotesSaved] = useState(false)
 
   useEffect(() => {
     listLectures(id)
@@ -100,9 +102,19 @@ export default function LectureDetailPage() {
         setLecture(lec)
         const res = await getResources(lec.id).catch(() => [])
         setResources(res)
+        // Load persisted notes for this lecture
+        const saved = localStorage.getItem(`tm_notes_${lec.id}`)
+        if (saved) setNotes(saved)
       })
       .finally(() => setLoading(false))
   }, [id, num])
+
+  function handleNoteChange(val: string) {
+    setNotes(val)
+    setNotesSaved(false)
+    if (lecture) localStorage.setItem(`tm_notes_${lecture.id}`, val)
+    setNotesSaved(true)
+  }
 
   function copyLink(type: 'forum' | 'quiz' | 'feedback') {
     const base = window.location.origin
@@ -346,6 +358,22 @@ export default function LectureDetailPage() {
                   )}
                 </div>
               )}
+            </div>
+            {/* Professor Notes */}
+            <div className="bg-surface-container-lowest rounded-lg p-5 shadow-card">
+              <div className="flex items-center justify-between mb-3">
+                <p className="font-label text-xs tracking-widest text-on-surface-variant uppercase">My Notes</p>
+                {notesSaved && (
+                  <span className="font-label text-[10px] text-outline">Saved</span>
+                )}
+              </div>
+              <textarea
+                className="w-full bg-surface-container-low rounded-lg px-4 py-3 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-outline transition resize-none min-h-[120px]"
+                placeholder="Add private notes for this lecture — talking points, things to emphasise, reminders…"
+                value={notes}
+                onChange={(e) => handleNoteChange(e.target.value)}
+              />
+              <p className="font-label text-[10px] text-outline mt-2">Only visible to you · saved locally</p>
             </div>
           </div>
 

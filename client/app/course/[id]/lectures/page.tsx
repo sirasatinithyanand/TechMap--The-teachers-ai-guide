@@ -6,7 +6,7 @@ import { motion } from 'framer-motion'
 import { Download, LayoutDashboard, ChevronRight, BookOpen, Edit3 } from 'lucide-react'
 import AppHeader from '@/components/AppHeader'
 import type { Course, Lecture } from '@/lib/api'
-import { getCourse, listLectures, exportLectures } from '@/lib/api'
+import { getCourse, listLectures, exportLecturesWithNotes } from '@/lib/api'
 
 const itemVariants = {
   hidden: { opacity: 0, y: 10 },
@@ -19,6 +19,31 @@ export default function LecturesPage() {
   const [course, setCourse] = useState<Course | null>(null)
   const [lectures, setLectures] = useState<Lecture[]>([])
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
+
+  async function handleExport() {
+    setExporting(true)
+    try {
+      const notes: Record<string, string> = {}
+      lectures.forEach((lec) => {
+        const n = localStorage.getItem(`tm_notes_${lec.id}`)
+        if (n?.trim()) notes[lec.id] = n
+      })
+      const blob = await exportLecturesWithNotes(id, notes)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${(course?.course_name || 'course').replace(/\s+/g, '_')}_lectures.zip`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      // silently fail — user can retry
+    } finally {
+      setExporting(false)
+    }
+  }
 
   useEffect(() => {
     Promise.all([getCourse(id), listLectures(id)])
@@ -54,14 +79,15 @@ export default function LecturesPage() {
               <Edit3 className="w-3 h-3" />
               Edit Curriculum
             </motion.button>
-            <a
-              href={exportLectures(id)}
-              download
-              className="flex items-center gap-1.5 font-label text-xs text-on-surface-variant hover:text-on-surface border border-outline-variant rounded-full px-3 py-1.5 transition-colors"
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={handleExport}
+              disabled={exporting}
+              className="flex items-center gap-1.5 font-label text-xs text-on-surface-variant hover:text-on-surface border border-outline-variant rounded-full px-3 py-1.5 transition-colors disabled:opacity-40"
             >
               <Download className="w-3 h-3" />
-              Export ZIP
-            </a>
+              {exporting ? 'Exporting…' : 'Export ZIP'}
+            </motion.button>
             <motion.button
               whileTap={{ scale: 0.97 }}
               onClick={() => router.push(`/course/${id}/dashboard`)}
