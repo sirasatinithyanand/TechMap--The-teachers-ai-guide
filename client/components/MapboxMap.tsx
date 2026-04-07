@@ -52,17 +52,41 @@ export default function MapboxMap({ courseId, courseName, onInspire }: Props) {
     setSelected(new Set())
     setFoundUni(null)
     try {
+      const EDU_KW = ['university', 'college', 'institute', 'school', 'academy', 'polytechnic', 'campus', 'tech']
+      const qLower = query.trim().toLowerCase()
+      // Append "university" only when no education keyword is present
+      const searchQuery = EDU_KW.some((kw) => qLower.includes(kw))
+        ? query.trim()
+        : `${query.trim()} university`
+
+      // Use Nominatim (OpenStreetMap) — universities are indexed as amenity=university
+      // with an exact `type` field, so there are no false positives from city neighbourhoods
+      type NominatimResult = { lat: string; lon: string; display_name: string; type: string; class: string }
       const res = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${TOKEN}&types=poi,place&limit=1`
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&limit=5&addressdetails=0`,
+        { headers: { 'User-Agent': 'TeachMap/1.0 (university-map)' } }
       )
-      const data = await res.json()
-      const feature = data.features?.[0]
-      if (!feature) { setError('University not found on map.'); return }
+      const results: NominatimResult[] = await res.json()
 
-      const [lng, lat] = feature.center
-      const name = feature.place_name
+      // Prefer an exact university/college match; fall back to any edu-keyword hit
+      const best =
+        results.find((r) => r.type === 'university' || r.type === 'college') ??
+        results.find((r) =>
+          EDU_KW.some((kw) => r.display_name.toLowerCase().includes(kw))
+        ) ??
+        null
 
-      map.current.flyTo({ center: [lng, lat], zoom: 12, duration: 1500 })
+      if (!best) {
+        setError('University not found. Try being more specific, e.g. "MIT Cambridge USA" or "University of Sydney Australia".')
+        return
+      }
+
+      const lng = parseFloat(best.lon)
+      const lat = parseFloat(best.lat)
+      // display_name is "MIT, ..., Cambridge, ..., USA" — take just the first part
+      const name = best.display_name.split(',')[0].trim()
+
+      map.current.flyTo({ center: [lng, lat], zoom: 14, duration: 1500 })
       marker.current?.remove()
       marker.current = new mapboxgl.Marker({ color: '#1a1c1c' })
         .setLngLat([lng, lat])
