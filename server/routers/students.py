@@ -1,5 +1,8 @@
+import logging
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 from models.students import (
     QuestionCreate, Question,
     FeedbackCreate, FeedbackSummary,
@@ -31,14 +34,22 @@ def _generate_and_post_ai_reply(question_id: str, question_text: str, lecture_id
             course_name=course_name,
         )
 
-        supabase.table("forum_replies").insert({
-            "question_id": question_id,
-            "reply_text": ai_answer,
-            "is_professor": False,
-            "is_ai": True,
-        }).execute()
-    except Exception:
-        pass  # AI reply failure is non-fatal
+        # Try with is_ai column first; fall back if column doesn't exist yet
+        try:
+            supabase.table("forum_replies").insert({
+                "question_id": question_id,
+                "reply_text": ai_answer,
+                "is_professor": False,
+                "is_ai": True,
+            }).execute()
+        except Exception:
+            supabase.table("forum_replies").insert({
+                "question_id": question_id,
+                "reply_text": ai_answer,
+                "is_professor": False,
+            }).execute()
+    except Exception as e:
+        logger.error("AI Q&A background task failed: %s", e, exc_info=True)
 
 
 @router.post("/lectures/{lecture_id}/questions", response_model=Question)
