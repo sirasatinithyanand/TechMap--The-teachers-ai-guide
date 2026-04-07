@@ -162,6 +162,25 @@ Respond ONLY in JSON:
     return _parse_json(_chat(prompt))
 
 
+def answer_student_question(
+    question: str,
+    lecture_title: str,
+    lecture_content: str,
+    course_name: str,
+) -> str:
+    prompt = f"""You are a helpful AI teaching assistant for the course "{course_name}".
+
+A student has asked the following question during or after the lecture "{lecture_title}":
+
+Student question: {question}
+
+Lecture content (for context):
+{lecture_content[:3000]}
+
+Answer the student's question clearly and helpfully. Be concise (2-4 sentences for simple questions, up to a short paragraph for complex ones). Use plain language suitable for a student. If the question is outside the lecture scope, acknowledge it and suggest they ask the professor."""
+    return _chat(prompt)
+
+
 def prepare_next_lecture(
     current_lecture: dict,
     feedback_summary: dict,

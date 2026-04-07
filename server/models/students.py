@@ -12,6 +12,7 @@ class Question(BaseModel):
     lecture_id: str
     question_text: str
     upvotes: int
+    escalated_to_prof: bool = False
     created_at: datetime
 
 
