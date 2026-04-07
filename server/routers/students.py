@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 from models.students import (
     QuestionCreate, Question,
@@ -6,20 +6,56 @@ from models.students import (
     QuizSubmission, QuizResult,
 )
 from services.supabase_client import supabase
+from services.curricullm import answer_student_question
 
 router = APIRouter(tags=["students"])
 
 
 # --- Forum ---
 
+def _generate_and_post_ai_reply(question_id: str, question_text: str, lecture_id: str):
+    """Background task: call CurricuLLM and post the AI reply."""
+    try:
+        # Fetch lecture info for context
+        lec_resp = supabase.table("lectures").select("title, content, course_id").eq("id", lecture_id).single().execute()
+        if not lec_resp.data:
+            return
+        lecture = lec_resp.data
+        course_resp = supabase.table("courses").select("course_name").eq("id", lecture["course_id"]).single().execute()
+        course_name = course_resp.data["course_name"] if course_resp.data else "Course"
+
+        ai_answer = answer_student_question(
+            question=question_text,
+            lecture_title=lecture["title"],
+            lecture_content=lecture["content"].get("main_content", ""),
+            course_name=course_name,
+        )
+
+        supabase.table("forum_replies").insert({
+            "question_id": question_id,
+            "reply_text": ai_answer,
+            "is_professor": False,
+            "is_ai": True,
+        }).execute()
+    except Exception:
+        pass  # AI reply failure is non-fatal
+
+
 @router.post("/lectures/{lecture_id}/questions", response_model=Question)
-def post_question(lecture_id: str, body: QuestionCreate):
+def post_question(lecture_id: str, body: QuestionCreate, background_tasks: BackgroundTasks):
     resp = (
         supabase.table("forum_questions")
-        .insert({"lecture_id": lecture_id, "question_text": body.question_text, "upvotes": 0})
+        .insert({"lecture_id": lecture_id, "question_text": body.question_text, "upvotes": 0, "escalated_to_prof": False})
         .execute()
     )
-    return Question(**resp.data[0])
+    question = resp.data[0]
+    background_tasks.add_task(
+        _generate_and_post_ai_reply,
+        question_id=question["id"],
+        question_text=body.question_text,
+        lecture_id=lecture_id,
+    )
+    return Question(**question)
 
 
 @router.get("/lectures/{lecture_id}/questions")
@@ -45,6 +81,19 @@ def upvote_question(question_id: str):
         supabase.table("forum_questions").update({"upvotes": new_count}).eq("id", question_id).execute()
         return {"upvotes": new_count}
     return resp.data
+
+
+@router.post("/questions/{question_id}/escalate")
+def escalate_question(question_id: str):
+    resp = (
+        supabase.table("forum_questions")
+        .update({"escalated_to_prof": True})
+        .eq("id", question_id)
+        .execute()
+    )
+    if not resp.data:
+        raise HTTPException(status_code=404, detail="Question not found")
+    return {"escalated": True}
 
 
 class ReplyCreate(BaseModel):

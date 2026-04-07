@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import type { Question, Reply } from '@/lib/api'
-import { listLectures, listQuestions, postQuestion, upvoteQuestion, postReply, getReplies } from '@/lib/api'
+import { listLectures, listQuestions, postQuestion, upvoteQuestion, postReply, getReplies, escalateQuestion } from '@/lib/api'
 
 const ANON_COLORS = [
   'bg-purple-100 text-purple-700',
@@ -32,9 +32,10 @@ interface QuestionCardProps {
   q: Question
   hasUpvoted: boolean
   onUpvote: (id: string) => void
+  autoOpenReplies?: boolean
 }
 
-function QuestionCard({ q, hasUpvoted, onUpvote }: QuestionCardProps) {
+function QuestionCard({ q, hasUpvoted, onUpvote, autoOpenReplies }: QuestionCardProps) {
   const hash = anonIdFor(q.id)
   const colorClass = ANON_COLORS[hash % ANON_COLORS.length]
   const name = ANON_NAMES[hash % ANON_NAMES.length]
@@ -45,6 +46,8 @@ function QuestionCard({ q, hasUpvoted, onUpvote }: QuestionCardProps) {
   const [replyText, setReplyText] = useState('')
   const [submittingReply, setSubmittingReply] = useState(false)
   const [loadingReplies, setLoadingReplies] = useState(false)
+  const [escalated, setEscalated] = useState(q.escalated_to_prof)
+  const [escalating, setEscalating] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   async function loadReplies() {
@@ -57,6 +60,14 @@ function QuestionCard({ q, hasUpvoted, onUpvote }: QuestionCardProps) {
       setLoadingReplies(false)
     }
   }
+
+  // Auto-open replies for newly posted questions so the AI answer loads
+  useEffect(() => {
+    if (autoOpenReplies) {
+      setShowReplies(true)
+      loadReplies()
+    }
+  }, [autoOpenReplies])
 
   async function handleToggleReplies() {
     if (!showReplies && replies.length === 0) {
@@ -80,11 +91,24 @@ function QuestionCard({ q, hasUpvoted, onUpvote }: QuestionCardProps) {
     }
   }
 
+  async function handleEscalate() {
+    setEscalating(true)
+    try {
+      await escalateQuestion(q.id)
+      setEscalated(true)
+    } finally {
+      setEscalating(false)
+    }
+  }
+
   function handleReplyClick() {
     setReplying(true)
     setShowReplies(true)
     setTimeout(() => textareaRef.current?.focus(), 50)
   }
+
+  const aiReply = replies.find((r) => r.is_ai)
+  const otherReplies = replies.filter((r) => !r.is_ai)
 
   return (
     <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
@@ -109,6 +133,11 @@ function QuestionCard({ q, hasUpvoted, onUpvote }: QuestionCardProps) {
               Anon {name}
             </span>
             <span className="text-xs text-gray-300">{timeAgo(q.created_at)}</span>
+            {escalated && (
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                Forwarded to professor
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -135,14 +164,47 @@ function QuestionCard({ q, hasUpvoted, onUpvote }: QuestionCardProps) {
       {showReplies && (
         <div className="border-t border-gray-100 bg-gray-50">
           {loadingReplies ? (
-            <div className="flex justify-center py-4">
+            <div className="flex items-center justify-center gap-2 py-4">
               <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+              <span className="text-xs text-gray-400">AI is generating an answer…</span>
             </div>
-          ) : replies.length === 0 && !replying ? (
-            <p className="text-xs text-gray-400 text-center py-4">No replies yet</p>
           ) : (
             <div className="divide-y divide-gray-100">
-              {replies.map((r) => (
+              {/* AI reply — shown first, prominently */}
+              {aiReply && (
+                <div className="px-4 py-3 bg-indigo-50/60">
+                  <div className="flex gap-2.5">
+                    <div className="shrink-0 mt-0.5">
+                      <span className="w-6 h-6 bg-indigo-500 rounded-full flex items-center justify-center text-white text-[10px]">🤖</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-xs font-semibold text-indigo-700">AI Assistant</span>
+                        <span className="text-[10px] text-gray-300">{timeAgo(aiReply.created_at)}</span>
+                      </div>
+                      <p className="text-sm text-gray-700 leading-relaxed">{aiReply.reply_text}</p>
+                    </div>
+                  </div>
+                  {/* Escalate button — only shown after AI has answered */}
+                  {!escalated ? (
+                    <div className="mt-3 flex items-center gap-2">
+                      <span className="text-xs text-gray-400">Not satisfied with this answer?</span>
+                      <button
+                        onClick={handleEscalate}
+                        disabled={escalating}
+                        className="text-xs font-semibold text-amber-600 hover:text-amber-700 underline underline-offset-2 disabled:opacity-50 transition"
+                      >
+                        {escalating ? 'Forwarding…' : 'Ask professor →'}
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-xs text-amber-600 font-medium">✓ Forwarded to your professor</p>
+                  )}
+                </div>
+              )}
+
+              {/* Other (student / professor) replies */}
+              {otherReplies.map((r) => (
                 <div key={r.id} className="px-4 py-3 flex gap-2.5">
                   <div className="shrink-0 mt-0.5">
                     {r.is_professor ? (
@@ -162,6 +224,10 @@ function QuestionCard({ q, hasUpvoted, onUpvote }: QuestionCardProps) {
                   </div>
                 </div>
               ))}
+
+              {replies.length === 0 && !replying && (
+                <p className="text-xs text-gray-400 text-center py-4">No replies yet</p>
+              )}
             </div>
           )}
 
@@ -219,6 +285,7 @@ export default function ForumPage() {
   const [upvoted, setUpvoted] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [justPosted, setJustPosted] = useState(false)
+  const [newQuestionId, setNewQuestionId] = useState<string | null>(null)
 
   useEffect(() => {
     listLectures(courseId).then((lectures) => {
@@ -242,6 +309,7 @@ export default function ForumPage() {
       const q = await postQuestion(lectureId, text)
       setQuestions((prev) => [q, ...prev])
       setText('')
+      setNewQuestionId(q.id)
       setJustPosted(true)
       setTimeout(() => setJustPosted(false), 3000)
     } finally {
@@ -329,6 +397,7 @@ export default function ForumPage() {
                 q={q}
                 hasUpvoted={upvoted.has(q.id)}
                 onUpvote={handleUpvote}
+                autoOpenReplies={q.id === newQuestionId}
               />
             ))}
           </div>

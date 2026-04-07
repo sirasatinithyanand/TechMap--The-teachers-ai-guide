@@ -85,6 +85,7 @@ export interface Question {
   lecture_id: string
   question_text: string
   upvotes: number
+  escalated_to_prof: boolean
   created_at: string
 }
 
@@ -108,6 +109,7 @@ export interface Reply {
   question_id: string
   reply_text: string
   is_professor: boolean
+  is_ai: boolean
   created_at: string
 }
 
@@ -273,6 +275,9 @@ export const postReply = (questionId: string, replyText: string, isProfessor = f
 
 export const getReplies = (questionId: string) =>
   req<Reply[]>(`/api/questions/${questionId}/replies`)
+
+export const escalateQuestion = (questionId: string) =>
+  req<{ escalated: boolean }>(`/api/questions/${questionId}/escalate`, { method: 'POST' })
 
 // ---- Feedback ----
 
