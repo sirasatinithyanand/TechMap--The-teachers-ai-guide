@@ -3,7 +3,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 from models.lectures import Lecture, LectureUpdate
 from services.supabase_client import supabase
-from services.curricullm import generate_lectures, generate_quiz, prepare_next_lecture
+from services.curricullm import generate_lectures, generate_quiz, prepare_next_lecture, generate_presentation_guide
 from services.export import build_lectures_zip
 from services.resources import generate_lecture_resources
 
@@ -275,9 +275,56 @@ def get_resources(lecture_id: str):
     return resp.data or []
 
 
+@router.post("/lectures/{lecture_id}/presentation-guide/generate")
+def generate_guide(lecture_id: str):
+    lec_resp = supabase.table("lectures").select("*").eq("id", lecture_id).single().execute()
+    if not lec_resp.data:
+        raise HTTPException(status_code=404, detail="Lecture not found")
+    lecture = lec_resp.data
+
+    course_resp = supabase.table("courses").select("course_name").eq("id", lecture["course_id"]).single().execute()
+    course_name = course_resp.data["course_name"] if course_resp.data else "Course"
+
+    try:
+        guide = generate_presentation_guide(
+            lecture_title=lecture["title"],
+            lecture_content=lecture["content"].get("main_content", ""),
+            learning_outcomes=lecture["content"].get("learning_outcomes", []),
+            key_concepts=lecture["content"].get("key_concepts", []),
+            course_name=course_name,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Guide generation failed: {e}")
+
+    # Replace existing guide for this lecture
+    supabase.table("presentation_guides").delete().eq("lecture_id", lecture_id).execute()
+    resp = supabase.table("presentation_guides").insert({
+        "lecture_id": lecture_id,
+        "slides": guide.get("slides", []),
+        "class_flow": guide.get("class_flow", []),
+    }).execute()
+    return resp.data[0]
+
+
+@router.get("/lectures/{lecture_id}/presentation-guide")
+def get_guide(lecture_id: str):
+    resp = (
+        supabase.table("presentation_guides")
+        .select("*")
+        .eq("lecture_id", lecture_id)
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if not resp.data:
+        raise HTTPException(status_code=404, detail="No presentation guide found.")
+    return resp.data[0]
+
+
 class ExportRequest(BaseModel):
     notes: dict[str, str] = {}
     format: str = "txt"
+    sections: list[str] | None = None  # e.g. ["revision","outcomes","concepts","content","notes"]
 
 
 @router.post("/courses/{course_id}/export")
@@ -293,8 +340,45 @@ def export_lectures(course_id: str, body: ExportRequest = ExportRequest()):
     if not lecs_resp.data:
         raise HTTPException(status_code=404, detail="No lectures to export.")
 
+    sections = set(body.sections) if body.sections else None
+    lecture_ids = [l["id"] for l in lecs_resp.data]
+
+    # Batch-fetch resources if selected
+    resources_by_lecture: dict[str, list] = {}
+    if sections is None or "resources" in sections:
+        res_resp = (
+            supabase.table("lecture_resources")
+            .select("*")
+            .in_("lecture_id", lecture_ids)
+            .execute()
+        )
+        for r in (res_resp.data or []):
+            resources_by_lecture.setdefault(r["lecture_id"], []).append(r)
+
+    # Batch-fetch guides if selected (keep only most recent per lecture)
+    guides_by_lecture: dict[str, dict] = {}
+    if sections is None or "guide" in sections:
+        guide_resp = (
+            supabase.table("presentation_guides")
+            .select("*")
+            .in_("lecture_id", lecture_ids)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        for g in (guide_resp.data or []):
+            if g["lecture_id"] not in guides_by_lecture:
+                guides_by_lecture[g["lecture_id"]] = g
+
     fmt = body.format if body.format in ("txt", "pdf") else "txt"
-    zip_bytes = build_lectures_zip(course["course_name"], lecs_resp.data, notes=body.notes, fmt=fmt)
+    zip_bytes = build_lectures_zip(
+        course["course_name"],
+        lecs_resp.data,
+        notes=body.notes,
+        fmt=fmt,
+        sections=body.sections,
+        resources_by_lecture=resources_by_lecture,
+        guides_by_lecture=guides_by_lecture,
+    )
     safe_name = course["course_name"].replace(" ", "_")
     return Response(
         content=zip_bytes,

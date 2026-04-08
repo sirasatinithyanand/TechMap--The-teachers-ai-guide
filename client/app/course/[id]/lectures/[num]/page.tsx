@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { PlayCircle, FileText, Share2, ChevronLeft, ChevronRight, Check, LayoutDashboard, RefreshCw, Download } from 'lucide-react'
+import { PlayCircle, FileText, Share2, ChevronLeft, ChevronRight, Check, LayoutDashboard, RefreshCw, Download, Presentation, Clock, Eye } from 'lucide-react'
 import AppHeader from '@/components/AppHeader'
-import type { Lecture, LectureResource } from '@/lib/api'
-import { listLectures, generateQuiz, prepareNextLecture, generateResources, getResources, shareResourceToForum } from '@/lib/api'
+import type { Lecture, LectureResource, PresentationGuide } from '@/lib/api'
+import { listLectures, generateQuiz, prepareNextLecture, generateResources, getResources, shareResourceToForum, generatePresentationGuide, getPresentationGuide } from '@/lib/api'
 
 function ResourceCard({
   resource,
@@ -93,6 +93,9 @@ export default function LectureDetailPage() {
   const [sharedToForum, setSharedToForum] = useState<Set<string>>(new Set())
   const [notes, setNotes] = useState('')
   const [notesSaved, setNotesSaved] = useState(false)
+  const [guide, setGuide] = useState<PresentationGuide | null>(null)
+  const [generatingGuide, setGeneratingGuide] = useState(false)
+  const [guideTab, setGuideTab] = useState<'slides' | 'flow'>('slides')
 
   useEffect(() => {
     listLectures(id)
@@ -102,6 +105,8 @@ export default function LectureDetailPage() {
         setLecture(lec)
         const res = await getResources(lec.id).catch(() => [])
         setResources(res)
+        const existingGuide = await getPresentationGuide(lec.id).catch(() => null)
+        if (existingGuide) setGuide(existingGuide)
         // Load persisted notes for this lecture
         const saved = localStorage.getItem(`tm_notes_${lec.id}`)
         if (saved) setNotes(saved)
@@ -256,6 +261,17 @@ export default function LectureDetailPage() {
       setResources(res)
     } finally {
       setGeneratingResources(false)
+    }
+  }
+
+  async function handleGenerateGuide() {
+    if (!lecture) return
+    setGeneratingGuide(true)
+    try {
+      const g = await generatePresentationGuide(lecture.id)
+      setGuide(g)
+    } finally {
+      setGeneratingGuide(false)
     }
   }
 
@@ -493,6 +509,121 @@ export default function LectureDetailPage() {
                 </div>
               )}
             </div>
+            {/* Teaching Guide */}
+            <div className="bg-surface-container-lowest rounded-lg p-5 shadow-card">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <p className="font-label text-xs tracking-widest text-on-surface-variant uppercase">Teaching Guide</p>
+                  <p className="font-label text-xs text-outline mt-0.5">Slide-by-slide plan + class flow</p>
+                </div>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={handleGenerateGuide}
+                  disabled={generatingGuide}
+                  className="flex items-center gap-1.5 font-label text-xs text-on-surface-variant hover:text-on-surface border border-outline-variant rounded-full px-3 py-1.5 transition-colors disabled:opacity-40 shrink-0"
+                >
+                  <RefreshCw className={`w-3 h-3 ${generatingGuide ? 'animate-spin' : ''}`} />
+                  {guide ? 'Regenerate' : 'Generate Guide'}
+                </motion.button>
+              </div>
+
+              {generatingGuide && (
+                <div className="flex items-center gap-2 py-6 font-label text-xs text-on-surface-variant">
+                  <div className="w-3.5 h-3.5 border-2 border-on-surface-variant border-t-transparent rounded-full animate-spin" />
+                  Building your teaching guide…
+                </div>
+              )}
+
+              {!guide && !generatingGuide && (
+                <div className="text-center py-6">
+                  <Presentation className="w-7 h-7 text-outline mx-auto mb-2" />
+                  <p className="font-label text-sm text-on-surface-variant">Generate a slide-by-slide breakdown with class flow and quiz timing</p>
+                </div>
+              )}
+
+              {guide && !generatingGuide && (
+                <>
+                  {/* Tab switcher */}
+                  <div className="flex gap-1 mb-4 bg-surface-container rounded-full p-0.5 w-fit">
+                    {(['slides', 'flow'] as const).map((tab) => (
+                      <button
+                        key={tab}
+                        onClick={() => setGuideTab(tab)}
+                        className={`font-label text-xs px-3 py-1 rounded-full transition-colors capitalize ${
+                          guideTab === tab
+                            ? 'bg-surface-container-lowest text-on-surface shadow-sm'
+                            : 'text-on-surface-variant hover:text-on-surface'
+                        }`}
+                      >
+                        {tab === 'slides' ? 'Slides' : 'Class Flow'}
+                      </button>
+                    ))}
+                  </div>
+
+                  {guideTab === 'slides' && (
+                    <div className="space-y-3">
+                      {guide.slides.map((slide) => (
+                        <div key={slide.number} className="bg-surface-container-low rounded-xl p-4">
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="font-label text-[10px] font-bold text-outline shrink-0">
+                                {String(slide.number).padStart(2, '0')}
+                              </span>
+                              <p className="font-headline font-[600] text-sm text-on-surface truncate">{slide.title}</p>
+                            </div>
+                            <span className="flex items-center gap-1 font-label text-[10px] text-outline shrink-0">
+                              <Clock className="w-2.5 h-2.5" />
+                              {slide.duration_minutes}m
+                            </span>
+                          </div>
+                          <ul className="space-y-1 mb-3">
+                            {slide.content_points.map((pt, i) => (
+                              <li key={i} className="flex gap-2 text-xs text-on-surface-variant leading-relaxed">
+                                <span className="text-outline shrink-0 mt-0.5">·</span>
+                                <span>{pt}</span>
+                              </li>
+                            ))}
+                          </ul>
+                          <div className="flex items-start gap-2 pt-2 border-t border-surface-container">
+                            <Eye className="w-3 h-3 text-outline shrink-0 mt-0.5" />
+                            <p className="font-label text-[11px] text-outline italic">{slide.suggested_visual}</p>
+                          </div>
+                          {slide.teaching_note && (
+                            <div className="mt-2 bg-surface-container rounded-lg px-3 py-2">
+                              <p className="font-label text-[10px] tracking-widest text-on-surface-variant uppercase mb-0.5">Professor note</p>
+                              <p className="font-label text-xs text-on-surface">{slide.teaching_note}</p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {guideTab === 'flow' && (
+                    <div className="space-y-2">
+                      {guide.class_flow.map((phase, i) => (
+                        <div key={i} className="flex gap-3">
+                          <div className="flex flex-col items-center">
+                            <div className="w-2 h-2 rounded-full bg-outline-variant mt-1.5 shrink-0" />
+                            {i < guide.class_flow.length - 1 && (
+                              <div className="w-px flex-1 bg-outline-variant/40 mt-1" />
+                            )}
+                          </div>
+                          <div className="pb-4 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <p className="font-headline font-[600] text-sm text-on-surface">{phase.phase}</p>
+                              <span className="font-label text-[10px] text-outline">{phase.duration}</span>
+                            </div>
+                            <p className="font-label text-xs text-on-surface-variant leading-relaxed">{phase.description}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
             {/* Professor Notes */}
             <div className="bg-surface-container-lowest rounded-lg p-5 shadow-card">
               <div className="flex items-center justify-between mb-3">

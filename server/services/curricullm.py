@@ -17,9 +17,17 @@ _groq = OpenAI(
 
 def _parse_json(text: str) -> dict | list:
     text = text.strip()
+    # Strip markdown code fences
     text = re.sub(r"^```(?:json)?\s*", "", text)
     text = re.sub(r"\s*```$", "", text)
-    return json.loads(text.strip())
+    text = text.strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        # Fix invalid escape sequences the LLM sometimes emits (e.g. \p, \s, \A)
+        # Replace any backslash not followed by a valid JSON escape char
+        fixed = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', text)
+        return json.loads(fixed)
 
 
 def _chat(prompt: str) -> str:
@@ -192,6 +200,64 @@ Lecture content (for context):
 
 Answer the student's question clearly and helpfully. Be concise (2-4 sentences for simple questions, up to a short paragraph for complex ones). Use plain language suitable for a student. If the question is outside the lecture scope, acknowledge it and suggest they ask the professor."""
     return _chat(prompt)
+
+
+def generate_presentation_guide(
+    lecture_title: str,
+    lecture_content: str,
+    learning_outcomes: list,
+    key_concepts: list,
+    course_name: str,
+) -> dict:
+    outcomes_str = "\n".join(f"- {o}" for o in learning_outcomes)
+    concepts_str = ", ".join(key_concepts)
+
+    prompt = f"""You are an experienced university professor preparing a teaching guide for a 60-minute lecture.
+
+Course: {course_name}
+Lecture: "{lecture_title}"
+Key Concepts: {concepts_str}
+Learning Outcomes:
+{outcomes_str}
+
+Lecture Content:
+{lecture_content[:3000]}
+
+Create a practical teaching guide that breaks this lecture into slides and a class flow plan.
+
+For the slides:
+- Design 6-10 slides that cover the full lecture
+- Each slide should have a clear title, 3-5 content bullet points, a suggested visual (e.g., "diagram showing X", "photo of Y", "flowchart of Z"), an estimated duration in minutes, and a brief teaching note for the professor
+- The first slide should be an engaging hook/opener
+- Include at least one slide for a discussion prompt or class activity
+- The last slide should be a summary/takeaways slide
+
+For the class flow:
+- Break the 60-minute class into 5-7 phases
+- Include when to run a refresher quiz (typically after covering 50-60% of the material)
+- Each phase must have: a phase name, duration (e.g., "10 min"), and a clear description of what happens
+
+Respond ONLY in JSON:
+{{
+  "slides": [
+    {{
+      "number": 1,
+      "title": "...",
+      "content_points": ["...", "..."],
+      "suggested_visual": "...",
+      "duration_minutes": 5,
+      "teaching_note": "..."
+    }}
+  ],
+  "class_flow": [
+    {{
+      "phase": "Warm-up",
+      "duration": "5 min",
+      "description": "..."
+    }}
+  ]
+}}"""
+    return _parse_json(_chat(prompt))
 
 
 def prepare_next_lecture(

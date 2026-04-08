@@ -182,15 +182,16 @@ export default function LandingPage() {
                 <motion.div
                   key={c.id}
                   variants={itemVariants}
-                  className="relative bg-surface-container-lowest rounded-lg shadow-card group"
+                  className="bg-surface-container-lowest rounded-lg shadow-card group flex items-stretch"
                 >
+                  {/* Main clickable area */}
                   <button
                     onClick={() => router.push(c.status === 'active' ? `/course/${c.id}/lectures` : `/course/${c.id}/curriculum`)}
-                    className="w-full text-left px-5 py-4 hover:bg-surface-container-low transition-colors rounded-lg"
+                    className="flex-1 text-left px-5 py-4 hover:bg-surface-container-low transition-colors rounded-l-lg min-w-0"
                   >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="font-headline font-[500] text-sm text-on-surface truncate group-hover:text-primary-container transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-headline font-[500] text-sm text-on-surface truncate">
                           {c.course_name}
                         </p>
                         <p className="font-label text-xs text-on-surface-variant mt-0.5 truncate">
@@ -210,37 +211,37 @@ export default function LandingPage() {
                             Draft
                           </span>
                         )}
-                        <ArrowRight className="w-3.5 h-3.5 text-outline group-hover:text-on-surface transition-colors" />
+                        <ArrowRight className="w-4 h-4 text-outline group-hover:text-on-surface transition-colors" />
                       </div>
                     </div>
                   </button>
 
-                  {/* Delete control */}
-                  <div className="absolute right-3 bottom-3">
+                  {/* Delete zone — visually separated */}
+                  <div className="border-l border-outline-variant/30 flex items-center px-3 shrink-0">
                     {confirmDeleteId === c.id ? (
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-col items-center gap-1">
                         <button
                           onClick={(e) => handleDelete(e, c.id)}
-                          className="font-label text-[10px] text-error hover:underline"
+                          className="font-label text-[10px] font-semibold text-error hover:underline whitespace-nowrap"
                         >
-                          Confirm
+                          Delete
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null) }}
-                          className="font-label text-[10px] text-outline hover:text-on-surface-variant"
+                          className="font-label text-[10px] text-outline hover:text-on-surface-variant whitespace-nowrap"
                         >
                           Cancel
                         </button>
                       </div>
                     ) : deletingId === c.id ? (
-                      <span className="font-label text-[10px] text-outline">Deleting…</span>
+                      <span className="font-label text-[10px] text-outline">…</span>
                     ) : (
                       <button
                         onClick={(e) => handleDelete(e, c.id)}
-                        className="opacity-0 group-hover:opacity-60 hover:!opacity-100 text-outline hover:text-error transition-all"
+                        className="opacity-0 group-hover:opacity-40 hover:!opacity-100 text-outline hover:text-error transition-all p-1.5 rounded-md hover:bg-error/8"
                         title="Delete course"
                       >
-                        <Trash2 className="w-3 h-3" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     )}
                   </div>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Download, LayoutDashboard, ChevronRight, BookOpen, Edit3, FileText, FileType } from 'lucide-react'
+import { Download, LayoutDashboard, ChevronRight, BookOpen, Edit3, FileText, FileType, Check } from 'lucide-react'
 import AppHeader from '@/components/AppHeader'
 import type { Course, Lecture } from '@/lib/api'
 import { getCourse, listLectures, exportLecturesWithNotes } from '@/lib/api'
@@ -13,6 +13,18 @@ const itemVariants = {
   show: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 200, damping: 22 } },
 }
 
+const SECTION_OPTIONS = [
+  { key: 'revision',  label: 'Revision' },
+  { key: 'outcomes',  label: 'Learning Outcomes' },
+  { key: 'concepts',  label: 'Key Concepts' },
+  { key: 'content',   label: 'Lecture Content' },
+  { key: 'resources', label: 'Pre-Lecture Resources' },
+  { key: 'guide',     label: 'Teaching Guide' },
+  { key: 'notes',     label: 'My Notes' },
+] as const
+
+type SectionKey = typeof SECTION_OPTIONS[number]['key']
+
 export default function LecturesPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -21,8 +33,21 @@ export default function LecturesPage() {
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
   const [showFormatModal, setShowFormatModal] = useState(false)
+  const [selectedFormat, setSelectedFormat] = useState<'txt' | 'pdf' | null>(null)
+  const [selectedSections, setSelectedSections] = useState<Set<SectionKey>>(
+    new Set(['revision', 'outcomes', 'concepts', 'content', 'resources', 'guide', 'notes'])
+  )
 
-  async function handleExport(format: 'txt' | 'pdf') {
+  function toggleSection(key: SectionKey) {
+    setSelectedSections(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) { next.delete(key) } else { next.add(key) }
+      return next
+    })
+  }
+
+  async function handleExport() {
+    if (!selectedFormat || selectedSections.size === 0) return
     setShowFormatModal(false)
     setExporting(true)
     try {
@@ -31,11 +56,11 @@ export default function LecturesPage() {
         const n = localStorage.getItem(`tm_notes_${lec.id}`)
         if (n?.trim()) notes[lec.id] = n
       })
-      const blob = await exportLecturesWithNotes(id, notes, format)
+      const blob = await exportLecturesWithNotes(id, notes, selectedFormat, [...selectedSections])
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${(course?.course_name || 'course').replace(/\s+/g, '_')}_lectures_${format}.zip`
+      a.download = `${(course?.course_name || 'course').replace(/\s+/g, '_')}_lectures_${selectedFormat}.zip`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -176,7 +201,7 @@ export default function LecturesPage() {
         )}
       </motion.div>
 
-      {/* Format picker modal */}
+      {/* Export modal */}
       <AnimatePresence>
         {showFormatModal && (
           <motion.div
@@ -192,44 +217,68 @@ export default function LecturesPage() {
               exit={{ opacity: 0, scale: 0.95, y: 8 }}
               transition={{ type: 'spring', stiffness: 300, damping: 28 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-surface-container-lowest rounded-2xl p-6 w-full max-w-xs shadow-xl"
+              className="bg-surface-container-lowest rounded-2xl p-6 w-full max-w-sm shadow-xl"
             >
               <h3 className="font-headline font-[540] text-base tracking-[-0.02em] text-on-surface mb-1">
-                Export format
+                Export lectures
               </h3>
               <p className="font-label text-xs text-on-surface-variant mb-5">
-                Each lecture becomes a file inside the ZIP. Your notes are included in both.
+                Choose format and what to include in each file.
               </p>
 
-              <div className="space-y-2">
-                <motion.button
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => handleExport('pdf')}
-                  className="w-full flex items-center gap-4 text-left rounded-xl px-4 py-3.5 border border-outline-variant hover:border-on-surface bg-surface-container-low hover:bg-surface-container transition-colors group"
-                >
-                  <FileType className="w-5 h-5 text-on-surface-variant group-hover:text-on-surface shrink-0 transition-colors" />
-                  <div>
-                    <p className="font-label text-sm font-semibold text-on-surface">PDF</p>
-                    <p className="font-label text-[10px] text-on-surface-variant mt-0.5">Formatted, ready to print or share</p>
-                  </div>
-                </motion.button>
-
-                <motion.button
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => handleExport('txt')}
-                  className="w-full flex items-center gap-4 text-left rounded-xl px-4 py-3.5 border border-outline-variant hover:border-on-surface bg-surface-container-low hover:bg-surface-container transition-colors group"
-                >
-                  <FileText className="w-5 h-5 text-on-surface-variant group-hover:text-on-surface shrink-0 transition-colors" />
-                  <div>
-                    <p className="font-label text-sm font-semibold text-on-surface">Plain text</p>
-                    <p className="font-label text-[10px] text-on-surface-variant mt-0.5">Simple .txt files, easy to edit</p>
-                  </div>
-                </motion.button>
+              {/* Format toggle */}
+              <p className="font-label text-[10px] tracking-widest text-on-surface-variant uppercase mb-2">Format</p>
+              <div className="flex gap-2 mb-5">
+                {(['pdf', 'txt'] as const).map((fmt) => (
+                  <button
+                    key={fmt}
+                    onClick={() => setSelectedFormat(fmt)}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-label font-semibold transition-colors ${
+                      selectedFormat === fmt
+                        ? 'border-on-surface bg-on-surface text-surface-container-lowest'
+                        : 'border-outline-variant text-on-surface-variant hover:border-on-surface hover:text-on-surface'
+                    }`}
+                  >
+                    {fmt === 'pdf' ? <FileType className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+                    {fmt === 'pdf' ? 'PDF' : 'Plain text'}
+                  </button>
+                ))}
               </div>
+
+              {/* Section checkboxes */}
+              <p className="font-label text-[10px] tracking-widest text-on-surface-variant uppercase mb-2">Include</p>
+              <div className="space-y-1 mb-5">
+                {SECTION_OPTIONS.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => toggleSection(key)}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-container-low transition-colors text-left"
+                  >
+                    <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors shrink-0 ${
+                      selectedSections.has(key)
+                        ? 'bg-on-surface border-on-surface'
+                        : 'border-outline-variant'
+                    }`}>
+                      {selectedSections.has(key) && <Check className="w-2.5 h-2.5 text-surface-container-lowest" />}
+                    </div>
+                    <span className="font-label text-sm text-on-surface">{label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Export button */}
+              <motion.button
+                whileTap={{ scale: 0.98 }}
+                onClick={handleExport}
+                disabled={!selectedFormat || selectedSections.size === 0}
+                className="w-full py-2.5 bg-primary text-on-primary font-label text-sm font-semibold rounded-full hover:bg-primary-container disabled:opacity-40 transition-colors"
+              >
+                Download ZIP
+              </motion.button>
 
               <button
                 onClick={() => setShowFormatModal(false)}
-                className="w-full mt-4 py-2 font-label text-xs text-on-surface-variant hover:text-on-surface transition-colors"
+                className="w-full mt-3 py-2 font-label text-xs text-on-surface-variant hover:text-on-surface transition-colors"
               >
                 Cancel
               </button>

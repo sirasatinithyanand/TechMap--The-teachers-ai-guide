@@ -113,6 +113,29 @@ export interface Reply {
   created_at: string
 }
 
+export interface PresentationSlide {
+  number: number
+  title: string
+  content_points: string[]
+  suggested_visual: string
+  duration_minutes: number
+  teaching_note: string
+}
+
+export interface ClassFlowPhase {
+  phase: string
+  duration: string
+  description: string
+}
+
+export interface PresentationGuide {
+  id: string
+  lecture_id: string
+  slides: PresentationSlide[]
+  class_flow: ClassFlowPhase[]
+  created_at: string
+}
+
 export interface FeedbackSummary {
   avg_rating: number
   total_responses: number
@@ -232,11 +255,16 @@ export const generateLectures = (courseId: string, teachingStyle?: string) =>
     body: JSON.stringify({ teaching_style: teachingStyle || 'balanced' }),
   })
 
-export const exportLecturesWithNotes = (courseId: string, notes: Record<string, string>, format: 'txt' | 'pdf' = 'txt') =>
+export const exportLecturesWithNotes = (
+  courseId: string,
+  notes: Record<string, string>,
+  format: 'txt' | 'pdf' = 'txt',
+  sections?: string[],
+) =>
   fetch(`${BASE}/api/courses/${courseId}/export`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ notes, format }),
+    body: JSON.stringify({ notes, format, sections }),
   }).then((r) => {
     if (!r.ok) throw new Error('Export failed')
     return r.blob()
@@ -266,6 +294,12 @@ export const getQuizResults = (quizId: string) =>
 
 export const prepareNextLecture = (lectureId: string) =>
   req<Lecture>(`/api/lectures/${lectureId}/next/prepare`, { method: 'POST' })
+
+export const generatePresentationGuide = (lectureId: string) =>
+  req<PresentationGuide>(`/api/lectures/${lectureId}/presentation-guide/generate`, { method: 'POST' })
+
+export const getPresentationGuide = (lectureId: string) =>
+  req<PresentationGuide>(`/api/lectures/${lectureId}/presentation-guide`)
 
 export const exportLectures = (courseId: string) =>
   `${BASE}/api/courses/${courseId}/export`
