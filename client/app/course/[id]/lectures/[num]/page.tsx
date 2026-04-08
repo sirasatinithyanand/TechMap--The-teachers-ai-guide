@@ -653,9 +653,9 @@ export default function LectureDetailPage() {
               </div>
               <div className="space-y-2">
                 {shareLinks.map(({ type, label }) => {
-                  const url = typeof window !== 'undefined'
-                    ? `${window.location.origin}/s/${id}/lecture/${num}/${type}`
-                    : `/s/${id}/lecture/${num}/${type}`
+                  const shareBase = process.env.NEXT_PUBLIC_SHARE_BASE_URL ||
+                    (typeof window !== 'undefined' ? window.location.origin : '')
+                  const url = `${shareBase}/s/${id}/lecture/${num}/${type}`
                   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(url)}`
                   const isQROpen = showQR.has(type)
                   return (

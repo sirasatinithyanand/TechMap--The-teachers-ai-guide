@@ -363,8 +363,8 @@ export default function ForumPage() {
     .finally(() => setLoading(false))
   }, [courseId, num])
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleSubmit(e?: React.FormEvent) {
+    e?.preventDefault()
     if (!text.trim() || !lectureId) return
     setSubmitting(true)
     try {
@@ -423,26 +423,25 @@ export default function ForumPage() {
               </motion.div>
             )}
           </AnimatePresence>
-          <form onSubmit={handleSubmit}>
+          <div>
             <textarea
               className="w-full text-sm bg-transparent focus:outline-none resize-none placeholder:text-outline min-h-[72px] text-on-surface"
               placeholder="What's on your mind? Ask away..."
               value={text}
               onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(e as unknown as React.FormEvent) } }}
             />
             <div className="flex items-center justify-between pt-2 border-t border-surface-container mt-2">
               <span className="font-label text-xs text-outline">Posting anonymously</span>
-              <motion.button
-                type="button"
+              <button
                 onClick={handleSubmit}
                 disabled={submitting || !text.trim()}
-                whileTap={{ scale: 0.97 }}
-                className="px-4 py-1.5 bg-primary text-on-primary font-label text-xs font-semibold rounded-full hover:bg-primary-container disabled:opacity-40 transition-colors"
+                className="px-4 py-1.5 bg-primary text-on-primary font-label text-xs font-semibold rounded-full hover:bg-primary-container disabled:opacity-40 transition-colors active:scale-95"
               >
                 {submitting ? '…' : 'Ask'}
-              </motion.button>
+              </button>
             </div>
-          </form>
+          </div>
         </div>
 
         {/* Stats */}
