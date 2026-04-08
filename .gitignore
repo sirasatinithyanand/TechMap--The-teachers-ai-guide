@@ -1,46 +1,3 @@
-<<<<<<< HEAD
-# Python virtual environments
-venv/
-.venv/
-env/
-.env_folder/
-ENV/
-
-# Python cache
-__pycache__/
-*.py[cod]
-*$py.class
-*.pyo
-*.pyd
-.Python
-
-# Python packaging
-*.egg
-*.egg-info/
-dist/
-build/
-eggs/
-parts/
-var/
-sdist/
-wheels/
-*.egg-link
-.installed.cfg
-pip-selfcheck.json
-
-# uv
-.uv/
-uv.lock
-
-# Environment variables
-.env
-.env.*
-!.env.example
-!.env.sample
-
-# Node.js
-node_modules/
-=======
 # Python
 __pycache__/
 *.py[cod]
@@ -59,6 +16,12 @@ server/.venv/
 venv/
 .venv/
 env/
+ENV/
+.env_folder/
+
+# uv
+.uv/
+uv.lock
 
 # Environment variables — NEVER commit secrets
 server/.env
@@ -66,16 +29,16 @@ client/.env.local
 .env
 .env.*
 !.env.example
+!.env.sample
 
 # Node
 node_modules/
 client/node_modules/
+.pnpm-store/
 
 # Next.js
 client/.next/
 client/out/
-
-# Build output
 client/build/
 client/dist/
 
@@ -84,61 +47,35 @@ client/dist/
 client/next-env.d.ts
 
 # Logs
+logs/
 *.log
->>>>>>> 6d15097 (Client side committed)
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-<<<<<<< HEAD
-.pnpm-store/
-
-# Next.js
-.next/
-out/
-build/
-
-# Logs
-logs/
-*.log
-=======
-logs/
->>>>>>> 6d15097 (Client side committed)
 
 # OS
 .DS_Store
 Thumbs.db
 
 # IDE
-<<<<<<< HEAD
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# Coverage
+# Python tooling
 htmlcov/
 .coverage
 .coverage.*
 coverage.xml
 *.cover
-
-# pytest
 .pytest_cache/
 .cache/
-
-# mypy
 .mypy_cache/
 .dmypy.json
 dmypy.json
-
-# Ruff / linters
 .ruff_cache/
-=======
-.idea/
-.vscode/
-*.swp
-*.swo
 
 # Supabase
 supabase/.branches/
@@ -148,4 +85,3 @@ supabase/.temp/
 *.tmp
 *.temp
 uploads/
->>>>>>> 6d15097 (Client side committed)

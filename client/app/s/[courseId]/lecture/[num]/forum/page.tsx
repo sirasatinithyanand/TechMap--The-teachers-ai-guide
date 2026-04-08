@@ -433,7 +433,8 @@ export default function ForumPage() {
             <div className="flex items-center justify-between pt-2 border-t border-surface-container mt-2">
               <span className="font-label text-xs text-outline">Posting anonymously</span>
               <motion.button
-                type="submit"
+                type="button"
+                onClick={handleSubmit}
                 disabled={submitting || !text.trim()}
                 whileTap={{ scale: 0.97 }}
                 className="px-4 py-1.5 bg-primary text-on-primary font-label text-xs font-semibold rounded-full hover:bg-primary-container disabled:opacity-40 transition-colors"

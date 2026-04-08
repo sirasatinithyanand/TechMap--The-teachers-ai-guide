@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Check } from 'lucide-react'
+import { X, Check, ChevronDown, ChevronUp } from 'lucide-react'
 import type { Chapter } from '@/lib/api'
 import { searchUniversity, saveInspiration } from '@/lib/api'
 
@@ -29,6 +29,7 @@ export default function MapboxMap({ courseId, courseName, onInspire }: Props) {
   const [modalUniName, setModalUniName] = useState('')
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [merging, setMerging] = useState(false)
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -251,36 +252,100 @@ export default function MapboxMap({ courseId, courseName, onInspire }: Props) {
 
               {/* Scrollable chapters */}
               <div className="overflow-y-auto flex-1 px-4 py-3 space-y-1">
-                {scrapedChapters.map((ch, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => toggleChapter(idx)}
-                    className={`w-full text-left px-3 py-2.5 rounded-lg flex items-start gap-3 transition-colors ${
-                      selected.has(idx)
-                        ? 'bg-on-surface text-on-primary'
-                        : 'hover:bg-surface-container-low text-on-surface'
-                    }`}
-                  >
-                    <span className={`font-label text-xs font-bold w-4 shrink-0 mt-0.5 ${
-                      selected.has(idx) ? 'text-surface-container-highest' : 'text-on-surface-variant'
+                {scrapedChapters.map((ch, idx) => {
+                  const isSelected = selected.has(idx)
+                  const isExpanded = expandedIdx === idx
+                  const topics = ch.topics || []
+                  const outcomes = ch.learning_outcomes || []
+                  const hasDetails = topics.length > 0 || outcomes.length > 0
+                  return (
+                    <div key={idx} className={`rounded-lg transition-colors ${
+                      isSelected ? 'bg-on-surface' : 'hover:bg-surface-container-low'
                     }`}>
-                      {ch.number}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-headline font-[500] text-xs leading-tight">{ch.title}</p>
-                      {ch.topics.length > 0 && (
-                        <p className={`font-label text-[10px] mt-0.5 truncate ${
-                          selected.has(idx) ? 'text-surface-container-highest' : 'text-outline'
+                      <div
+                        className="flex items-start gap-3 px-3 py-2.5 cursor-pointer"
+                        onClick={() => toggleChapter(idx)}
+                      >
+                        <span className={`font-label text-xs font-bold w-4 shrink-0 mt-0.5 ${
+                          isSelected ? 'text-surface-container-highest' : 'text-on-surface-variant'
                         }`}>
-                          {ch.topics.slice(0, 3).join(' · ')}
-                        </p>
-                      )}
+                          {ch.number}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-headline font-[500] text-xs leading-tight ${isSelected ? 'text-on-primary' : 'text-on-surface'}`}>
+                            {ch.title}
+                          </p>
+                          {topics.length > 0 && !isExpanded && (
+                            <p className={`font-label text-[10px] mt-0.5 truncate ${
+                              isSelected ? 'text-surface-container-highest' : 'text-outline'
+                            }`}>
+                              {topics.slice(0, 3).join(' · ')}{topics.length > 3 ? ' · …' : ''}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+                          {isSelected && <Check className="w-3 h-3 text-surface-container-highest" />}
+                          {hasDetails && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setExpandedIdx(isExpanded ? null : idx) }}
+                              className={`p-0.5 rounded transition-colors ${
+                                isSelected ? 'text-surface-container-highest hover:text-on-primary' : 'text-outline hover:text-on-surface'
+                              }`}
+                            >
+                              {isExpanded
+                                ? <ChevronUp className="w-3 h-3" />
+                                : <ChevronDown className="w-3 h-3" />}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <AnimatePresence>
+                        {isExpanded && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.18 }}
+                            className="overflow-hidden"
+                          >
+                            <div className={`px-3 pb-3 pl-10 space-y-2 text-[10px] font-label ${
+                              isSelected ? 'text-surface-container-highest' : 'text-on-surface-variant'
+                            }`}>
+                              {topics.length > 0 && (
+                                <div>
+                                  <p className="uppercase tracking-widest mb-1 opacity-60">Topics</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {topics.map((t, i) => (
+                                      <span key={i} className={`px-2 py-0.5 rounded-full text-[10px] ${
+                                        isSelected
+                                          ? 'bg-surface-container-highest/20 text-surface-container-highest'
+                                          : 'bg-surface-container text-on-surface-variant'
+                                      }`}>{t}</span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {outcomes.length > 0 && (
+                                <div>
+                                  <p className="uppercase tracking-widest mb-1 opacity-60">Learning Outcomes</p>
+                                  <ul className="space-y-0.5">
+                                    {outcomes.map((o, i) => (
+                                      <li key={i} className="flex gap-1.5">
+                                        <span className="opacity-40 shrink-0">–</span>
+                                        <span>{o}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
-                    {selected.has(idx) && (
-                      <Check className="w-3 h-3 shrink-0 mt-0.5 text-surface-container-highest" />
-                    )}
-                  </button>
-                ))}
+                  )
+                })}
               </div>
 
               {/* Footer */}

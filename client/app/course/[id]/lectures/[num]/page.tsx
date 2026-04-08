@@ -96,6 +96,7 @@ export default function LectureDetailPage() {
   const [guide, setGuide] = useState<PresentationGuide | null>(null)
   const [generatingGuide, setGeneratingGuide] = useState(false)
   const [guideTab, setGuideTab] = useState<'slides' | 'flow'>('slides')
+  const [showQR, setShowQR] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     listLectures(id)
@@ -650,30 +651,60 @@ export default function LectureDetailPage() {
                 <Share2 className="w-3.5 h-3.5 text-on-surface-variant" />
                 <p className="font-label text-xs tracking-widest text-on-surface-variant uppercase">Share with students</p>
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {shareLinks.map(({ type, label }) => {
                   const url = typeof window !== 'undefined'
                     ? `${window.location.origin}/s/${id}/lecture/${num}/${type}`
                     : `/s/${id}/lecture/${num}/${type}`
+                  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(url)}`
+                  const isQROpen = showQR.has(type)
                   return (
                     <div key={type} className="bg-surface-container-low rounded-lg px-3 py-2.5">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="font-label text-xs text-on-surface">{label}</span>
-                        <button
-                          onClick={() => copyLink(type)}
-                          className="font-label text-[10px] text-on-surface-variant hover:text-on-surface transition-colors"
-                        >
-                          {copied === type ? '✓ Copied' : 'Copy'}
-                        </button>
+                      <div className="flex items-center justify-between">
+                        <span className="font-label text-xs font-semibold text-on-surface">{label}</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setShowQR(prev => {
+                              const next = new Set(prev)
+                              next.has(type) ? next.delete(type) : next.add(type)
+                              return next
+                            })}
+                            className={`font-label text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                              isQROpen
+                                ? 'border-on-surface bg-on-surface text-surface-container-lowest'
+                                : 'border-outline-variant text-on-surface-variant hover:border-on-surface hover:text-on-surface'
+                            }`}
+                          >
+                            QR
+                          </button>
+                          <button
+                            onClick={() => copyLink(type)}
+                            className="font-label text-[10px] text-on-surface-variant hover:text-on-surface transition-colors"
+                          >
+                            {copied === type ? '✓' : 'Copy'}
+                          </button>
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-label text-[10px] text-outline hover:text-on-surface-variant transition-colors"
+                          >
+                            ↗
+                          </a>
+                        </div>
                       </div>
-                      <a
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-label text-[10px] text-outline hover:text-on-surface-variant truncate block transition-colors"
-                      >
-                        Open ↗
-                      </a>
+                      {isQROpen && (
+                        <div className="mt-3 flex flex-col items-center gap-2">
+                          <img
+                            src={qrSrc}
+                            alt={`QR code for ${label}`}
+                            className="w-36 h-36 rounded-lg"
+                          />
+                          <p className="font-label text-[10px] text-outline text-center break-all leading-relaxed">
+                            {url}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )
                 })}
