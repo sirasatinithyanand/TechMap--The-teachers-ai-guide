@@ -85,3 +85,4 @@ supabase/.temp/
 *.tmp
 *.temp
 uploads/
+.DS_Store
